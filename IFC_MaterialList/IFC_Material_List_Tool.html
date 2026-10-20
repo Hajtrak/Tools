@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; worker-src blob:; connect-src 'none'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>IFC Material List</title>
+<style>
+:root{color-scheme:light;--ink:#163047;--muted:#536776;--line:#d5dfe7;--blue:#145b8a;--pale:#edf4f8;--green:#16604d}
+*{box-sizing:border-box}body{margin:0;background:#f3f6f8;color:var(--ink);font:16px/1.5 "Segoe UI",Arial,sans-serif}
+main{max-width:1080px;margin:40px auto;padding:0 24px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}
+h1{font-size:30px;letter-spacing:-.6px;margin:0}h2{font-size:20px;margin:0 0 14px}p{margin:8px 0}.muted,small{color:var(--muted)}.badge{color:var(--green);background:#e5f1eb;border:1px solid #bad8ca;padding:6px 12px;border-radius:20px;font-size:13px;white-space:nowrap}
+.card{background:white;border:1px solid var(--line);border-radius:14px;padding:26px;margin:18px 0;box-shadow:0 3px 12px #16304705}
+.drop{background:#f8fbfd;border:2px dashed #9db6c7;border-radius:10px;padding:30px 20px;text-align:center;transition:.15s}.drop.over{background:#e5f2fb;border-color:var(--blue)}
+button{border:1px solid var(--blue);border-radius:7px;padding:11px 18px;background:var(--blue);color:white;font:600 15px "Segoe UI",Arial;cursor:pointer}button.secondary{color:var(--blue);background:white}button:disabled{opacity:.5;cursor:wait}button:focus-visible,summary:focus-visible{outline:3px solid #e8a52e;outline-offset:3px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}.options{margin-top:20px;display:grid;gap:9px}label{display:flex;align-items:flex-start;gap:9px}input[type=checkbox]{margin-top:5px;accent-color:var(--blue);width:16px;height:16px;flex-shrink:0}
+.status{margin:18px 0 0;border-left:4px solid var(--blue);padding:10px 14px;background:var(--pale);white-space:pre-wrap;overflow-wrap:anywhere}.status.error{border-color:#b13131;background:#fff0ef;color:#862d29}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.stat{background:var(--pale);padding:15px;border-radius:8px}.stat strong{display:block;font-size:25px;font-weight:650}.stat span{font-size:13px;color:var(--muted)}
+.table-wrap{overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:8px}table{border-collapse:collapse;width:100%;font-size:14px}th{background:#e9f0f5;text-align:left;position:sticky;top:0}th,td{padding:10px 13px;border-bottom:1px solid var(--line)}tbody tr:nth-child(even){background:#f8fafc}td.num,th.num{text-align:right;white-space:nowrap}td{overflow-wrap:anywhere}
+summary{cursor:pointer;font-weight:600}details{margin-top:16px}ul{padding-left:23px}li{margin:5px 0}.warning{background:#fff7e8;border:1px solid #ead3a5;padding:13px;border-radius:8px;margin:15px 0}footer{font-size:12px;color:var(--muted);margin-top:24px}.hidden{display:none!important}
+@media(max-width:650px){main{margin:22px auto;padding:0 14px 30px}header{align-items:flex-start;flex-direction:column;gap:10px}.card{padding:18px}.stats{grid-template-columns:repeat(2,1fr)}h1{font-size:26px}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>IFC Material List</h1><p class="muted">Turn IFC member data into a grouped CSV schedule.</p></div><span class="badge">Offline · files stay on your computer</span></header>
+<section class="card" aria-label="Choose your IFC">
+<h2>1. Choose an IFC file</h2>
+<div class="drop" id="drop"><p><strong>Drop an .ifc file here</strong></p><p class="muted">or choose one from your computer</p><p><button id="choose" type="button">Choose IFC file</button><input id="file" type="file" accept=".ifc" hidden></p></div>
+<div class="options">
+<label><input id="exclude" type="checkbox" checked><span>Exclude cleats, endplates and other named connection/plate pieces <small>(same scope as your material lists)</small></span></label>
+<small>Includes beams, columns and members such as ties, purlins and hip-rafters. Other IFC classes, including IFCPLATE and fasteners, are outside this tool.</small>
+</div>
+<div class="status" id="status" role="status" aria-live="polite">Ready. Choose a file to begin.</div>
+</section>
+<section class="card hidden" id="results" aria-label="Extraction results">
+<h2>2. Save your material list</h2>
+<p id="source" class="muted"></p>
+<div class="stats"><div class="stat"><strong id="pieces">0</strong><span>pieces included</span></div><div class="stat"><strong id="rows">0</strong><span>grouped CSV rows</span></div><div class="stat"><strong id="sections">0</strong><span>section names</span></div><div class="stat"><strong id="skipped">0</strong><span>items excluded / unbuilt</span></div></div>
+<p>CSV columns: <strong>Name, Section Size, Length (mm), Piece Count</strong>.</p>
+<div id="warning" class="warning hidden"></div>
+<div class="actions"><button id="download" type="button">Save material list CSV</button><button id="report" type="button" class="secondary">Save extraction report</button><button id="issues" type="button" class="secondary hidden">Save missing-data CSV</button></div>
+<details open><summary>Preview</summary><p class="muted" id="preview-note"></p><div class="table-wrap"><table><thead><tr><th>Name</th><th>Section Size</th><th class="num">Length (mm)</th><th class="num">Piece Count</th></tr></thead><tbody id="preview"></tbody></table></div></details>
+<details><summary>Exclusions and extraction notes</summary><div id="notes"></div></details>
+</section>
+<section class="card">
+<h2>How it works</h2>
+<p>Each row groups the same <strong>IFC Name + section size + length</strong>. Lengths come from IFC properties or length quantities, converted to millimetres. Original section names and length precision are retained.</p>
+<details><summary>Scope and limits</summary><ul>
+<li>Reads text STEP .ifc files, including IFC2X3 and IFC4 member data. Compressed IFCZIP files must be extracted first.</li>
+<li>Default exclusions: cleats, endplates, plates, clamp plates, baseplates, haunches, thermal breaks and sheets. Clear the checkbox before choosing a file to include those named objects when they belong to a beam, column or member class.</li>
+<li>Does not require Revit or loaded Revit families. Slanted members are included when their section and IFC Length are available.</li>
+<li>Does not infer lengths from geometry. Missing or invalid lengths, sections or IDs are listed in the extraction report rather than silently counted. A source name of “Unnamed” stays unchanged; blank names become “Unnamed” and are reported.</li>
+<li>Section lookup: Revit Family:Type names, IFC ObjectType, Description, then associated type name. Check unusual exports where those fields contain descriptions instead of section names.</li>
+<li>This is a model schedule, with no stock-length optimisation, cutting allowance, waste, fabrication or procurement adjustment.</li>
+</ul></details>
+</section>
+<footer>IFC Material List Tool v1.0.1 · Prepared 20 October 2026 · No uploads, external libraries or internet connection required.</footer>
+</main>
+<script id="worker-code" type="text/plain">
+'use strict';
+const MEMBER_TYPES = new Set(['IFCBEAM','IFCCOLUMN','IFCMEMBER','IFCBEAMSTANDARDCASE','IFCCOLUMNSTANDARDCASE','IFCMEMBERSTANDARDCASE']);
+const EXCLUSIONS = new Set(['CLEAT','ENDPLATE','END PLATE','BASEPLATE','BASE PLATE','PLATE','CLAMP PLATE','HAUNCH','THERMAL BREAK','SHEET']);
+const refId = v => v && typeof v.ref === 'number' ? v.ref : null;
+const record = (ent, v) => ent.get(refId(v));
+const labelKey = s => String(s || '').replace(/[_-]+/g,' ').trim().toUpperCase();
+function decodeStep(s) {
+  return s.replace(/\\X2\\([0-9a-f]+)\\X0\\/gi,(_,h)=>h.match(/.{4}/g)?.map(c=>String.fromCharCode(parseInt(c,16))).join('') || '')
+    .replace(/\\X4\\([0-9a-f]+)\\X0\\/gi,(_,h)=>h.match(/.{8}/g)?.map(c=>String.fromCodePoint(parseInt(c,16))).join('') || '')
+    .replace(/\\X\\([0-9a-f]{2})/gi,(_,h)=>String.fromCharCode(parseInt(h,16)));
+}
+class StepReader {
+  constructor(text, progress) { this.s=text; this.i=0; this.progress=progress; }
+  ws() {
+    while(this.i<this.s.length) {
+      if(/\s/.test(this.s[this.i])) { this.i++; continue; }
+      if(this.s.startsWith('/*',this.i)) {
+        const end=this.s.indexOf('*/',this.i+2);
+        if(end<0) throw Error('Unterminated IFC comment.');
+        this.i=end+2; continue;
+      }
+      break;
+    }
+  }
+  expect(c) { this.ws(); if(this.s[this.i]!==c) throw Error('Malformed IFC near character '+this.i+': expected '+c); this.i++; }
+  word() { this.ws(); const start=this.i; while(/[A-Za-z0-9_]/.test(this.s[this.i] || '') && this.i<this.s.length) this.i++; if(this.i===start) throw Error('Expected IFC identifier at '+this.i); return this.s.slice(start,this.i); }
+  list(depth) {
+    if(depth>100) throw Error('IFC nesting exceeds 100 levels.');
+    this.expect('('); const out=[]; this.ws();
+    if(this.s[this.i]===')') {this.i++;return out;}
+    while(this.i<this.s.length) {
+      out.push(this.value(depth+1));this.ws();
+      if(this.s[this.i]===')') {this.i++;return out;}
+      this.expect(',');
+    }
+    throw Error('Unterminated IFC argument list.');
+  }
+  value(depth) {
+    this.ws(); const c=this.s[this.i];
+    if(c==='(') return this.list(depth);
+    if(c==='$') {this.i++;return null;}
+    if(c==='*') {this.i++;return '*';}
+    if(c==='#') {this.i++;return {ref:Number(this.word())};}
+    if(c==="'") {
+      this.i++;let out='';
+      while(this.i<this.s.length) {
+        const ch=this.s[this.i++];
+        if(ch!=="'") {out+=ch;continue;}
+        if(this.s[this.i]==="'") {out+="'";this.i++;continue;}
+        return decodeStep(out);
+      }
+      throw Error('Unterminated IFC string.');
+    }
+    if(/[A-Za-z_]/.test(c || '')) {
+      const name=this.word().toUpperCase();this.ws();
+      return this.s[this.i]==='(' ? {type:name,args:this.list(depth)} : name;
+    }
+    const start=this.i;
+    while(this.i<this.s.length && !/[\s,();]/.test(this.s[this.i])) this.i++;
+    if(start===this.i) throw Error('Unexpected IFC token at '+this.i);
+    const token=this.s.slice(start,this.i);
+    return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:E[+-]?\d+)?$/i.test(token) ? {num:token} : token;
+  }
+  read() {
+    // This selector is outside geometry parsing; quoted text is parsed intact below.
+    let start=-1;
+    for(let i=0;i<this.s.length;i++) {
+      if(this.s.startsWith('/*',i)) {const end=this.s.indexOf('*/',i+2);if(end<0)throw Error('Unterminated IFC comment.');i=end+1;continue;}
+      if(this.s[i]==="'") {
+        i++;while(i<this.s.length) {if(this.s[i]==="'"){if(this.s[i+1]==="'"){i+=2;continue;}break;}i++;}continue;
+      }
+      if((i===0 || !/[A-Za-z0-9_]/.test(this.s[i-1])) && /^DATA\s*;/i.test(this.s.slice(i,i+32))) {
+        start=i+this.s.slice(i,i+32).match(/^DATA\s*;/i)[0].length;break;
+      }
+    }
+    if(start<0) throw Error('No STEP DATA section found. Choose an uncompressed text .ifc file.');
+    this.i=start;const ent=new Map();let ended=false;
+    while(this.i<this.s.length) {
+      this.ws();
+      if(/^ENDSEC\s*;/i.test(this.s.slice(this.i,this.i+16))) {ended=true;break;}
+      this.expect('#');const id=Number(this.word());this.expect('=');
+      const type=this.word().toUpperCase(), args=this.list(0);this.expect(';');
+      if(!Number.isSafeInteger(id) || ent.has(id)) throw Error('Duplicate or invalid STEP entity ID '+id);
+      ent.set(id,{type,args});
+      if(ent.size%15000===0) this.progress?.(ent.size,this.i/this.s.length);
+    }
+    if(!ended) throw Error('The IFC DATA section is incomplete (missing ENDSEC).');
+    return ent;
+  }
+}
+function decimal(v) {
+  if(v && v.num!==undefined) v=v.num;
+  else if(v && Array.isArray(v.args) && v.args.length===1) return decimal(v.args[0]);
+  else if(typeof v!=='string') throw Error('Value is not a numeric IFC measure.');
+  const m=/^([+-]?)(\d*)(?:\.(\d*))?(?:E([+-]?\d+))?$/i.exec(v);
+  if(!m || !(m[2] || m[3])) throw Error('Invalid numeric measure.');
+  const exp=Number(m[4] || 0)-(m[3] || '').length;
+  if(!Number.isSafeInteger(exp) || Math.abs(exp)>100) throw Error('Numeric measure exponent out of range.');
+  return {c:BigInt((m[1]==='-'?'-':'')+(m[2] || '0')+(m[3] || '')),e:exp};
+}
+function multiply(a,b) {return {c:a.c*b.c,e:a.e+b.e};}
+function decimalString(d) {
+  if(d.c===0n) return '0';
+  const sign=d.c<0n?'-':'',digits=(d.c<0n?-d.c:d.c).toString();let result;
+  if(d.e>=0) result=digits+'0'.repeat(d.e);
+  else {const p=digits.length+d.e;result=p>0?digits.slice(0,p)+'.'+digits.slice(p):'0.'+'0'.repeat(-p)+digits;result=result.replace(/0+$/,'').replace(/\.$/,'');}
+  return sign+result;
+}
+function compareDecimals(a,b) {
+  const da=decimal(a),db=decimal(b),e=Math.min(da.e,db.e);
+  const x=da.c*10n**BigInt(da.e-e),y=db.c*10n**BigInt(db.e-e);return x<y?-1:x>y?1:0;
+}
+function unitScale(ent, unit, trail=new Set()) {
+  const id=refId(unit);
+  if(id===null || trail.has(id)) throw Error('Missing or cyclic IFC length unit.');
+  trail=new Set(trail);trail.add(id);
+  const u=ent.get(id);if(!u)throw Error('Missing IFC unit entity #'+id);
+  const a=u.args;
+  if(u.type==='IFCSIUNIT' && a[1]==='.LENGTHUNIT.' && a[3]==='.METRE.') {
+    const powers=new Map([[null,'1000'],['.MILLI.','1'],['.CENTI.','10'],['.DECI.','100'],['.MICRO.','0.001'],['.KILO.','1000000']]);
+    if(!powers.has(a[2]))throw Error('Unsupported IFC SI prefix: '+a[2]);
+    return decimal(powers.get(a[2]));
+  }
+  if(u.type==='IFCCONVERSIONBASEDUNIT' && a[1]==='.LENGTHUNIT.') {
+    const factor=record(ent,a[3]);
+    if(!factor || factor.type!=='IFCMEASUREWITHUNIT')throw Error('Unsupported length conversion.');
+    const value=decimal(factor.args[0]);
+    if(value.c<=0n)throw Error('IFC unit conversion factor must be positive.');
+    return multiply(value,unitScale(ent,factor.args[1],trail));
+  }
+  throw Error('Unsupported length unit: '+u.type);
+}
+function projectScale(ent) {
+  let project;for(const entity of ent.values()) {if(entity.type==='IFCPROJECT'){project=entity;break;}}
+  const assignment=project && record(ent,project.args[8]);
+  if(!assignment || !Array.isArray(assignment.args[0]))throw Error('No assigned project length units found.');
+  const length=assignment.args[0].find(r=>record(ent,r)?.args[1]==='.LENGTHUNIT.');
+  return unitScale(ent,length);
+}
+function lengthRank(name) {
+  const key=String(name || '').toLowerCase().replace(/[\s_-]/g,'');
+  return key==='length'?0:key==='netlength'?1:key==='grosslength'?2:-1;
+}
+function extractMaterialList(text, excludeConnections=true, progress) {
+  const ent=new StepReader(text,progress).read();
+  progress?.(ent.size,1,'Reading member properties and grouping lengths…');
+  const scale=projectScale(ent),sets=new Map(),props=new Map(),types=new Map(),guidCounts=new Map();
+  for(const [id,{type,args:a}] of ent) {
+    if(MEMBER_TYPES.has(type) && typeof a[0]==='string' && a[0].trim()) {
+      const guid=a[0].trim();guidCounts.set(guid,(guidCounts.get(guid) || 0)+1);
+    }
+    let candidates=[];
+    if(type==='IFCPROPERTYSET') {
+      for(const r of a[4] || []) {
+        const p=record(ent,r);if(!p || p.type!=='IFCPROPERTYSINGLEVALUE')continue;
+        const rank=lengthRank(p.args[0]);
+        if(rank>=0) candidates.push({rank,value:p.args[2],unit:p.args[3]});
+      }
+    } else if(type==='IFCELEMENTQUANTITY') {
+      for(const r of a[5] || []) {
+        const p=record(ent,r);if(!p || p.type!=='IFCQUANTITYLENGTH')continue;
+        const rank=lengthRank(p.args[0]);
+        if(rank>=0) candidates.push({rank,value:p.args[3],unit:p.args[2]});
+      }
+    } else continue;
+    sets.set(id,candidates);
+  }
+  for(const [id,{type,args:a}] of ent) {
+    if(type==='IFCRELDEFINESBYPROPERTIES') {
+      const values=sets.get(refId(a[5])) || [];
+      if(values.length)for(const r of a[4] || []) {
+        const key=refId(r),current=props.get(key) || [];props.set(key,current.concat(values));
+      }
+    } else if(type==='IFCRELDEFINESBYTYPE') {
+      const t=record(ent,a[5]);if(t)for(const r of a[4] || [])types.set(refId(r),t.args[2]);
+    }
+  }
+  const groups=new Map(),exclusions={},issues=[];let members=0,pieces=0,unnamed=0;
+  for(const [id,{type,args:a}] of ent) {
+    if(!MEMBER_TYPES.has(type))continue;members++;
+    const rawName=typeof a[2]==='string' && a[2].trim()?a[2]:'',name=rawName || 'Unnamed',label=labelKey(name);
+    if(excludeConnections && (EXCLUSIONS.has(label) || /CLEAT|END\s*PLATE/.test(label))) {
+      exclusions[label]=(exclusions[label] || 0)+1;continue;
+    }
+    const nameParts=rawName.split(':');
+    const revitSection=nameParts.length>1?nameParts[1].trim():'';
+    const section=[revitSection,a[4],a[3],types.get(id)].find(v=>typeof v==='string' && v.trim())?.trim() || '';
+    const guid=typeof a[0]==='string'?a[0].trim():'';
+    try {
+      if(!section)throw Error('No section in Name/ObjectType/Description/associated type.');
+      if(!guid)throw Error('Missing IFC GlobalId.');
+      if(guidCounts.get(guid)!==1)throw Error('Duplicate IFC GlobalId; all occurrences excluded from the schedule.');
+      const candidates=props.get(id) || [];
+      if(!candidates.length)throw Error('No IFC Length/NetLength/GrossLength property or length quantity.');
+      const bestRank=Math.min(...candidates.map(c=>c.rank));
+      const lengths=candidates.filter(c=>c.rank===bestRank).map(c=> {
+        const value=decimal(c.value);
+        if(value.c<=0n)throw Error('IFC length must be positive.');
+        return decimalString(multiply(value,c.unit?unitScale(ent,c.unit):scale));
+      });
+      const unique=[...new Set(lengths)];
+      if(unique.length!==1)throw Error('Conflicting IFC length values: '+unique.join(', ')+' mm.');
+      const length=unique[0],key=JSON.stringify([name,section,length]);
+      if(!groups.has(key))groups.set(key,{name,section,length,count:0});
+      groups.get(key).count++;pieces++;if(!rawName)unnamed++;
+    } catch(error) {issues.push({id,name,section,guid,reason:error.message});}
+  }
+  const rows=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name,'en',{sensitivity:'variant'}) || a.section.localeCompare(b.section,'en') || compareDecimals(a.length,b.length));
+  const excluded=Object.values(exclusions).reduce((a,b)=>a+b,0);
+  if(pieces+excluded+issues.length!==members)throw Error('Internal reconciliation failed: candidate counts do not balance.');
+  return {entities:ent.size,members,pieces,rows,exclusions,excluded,issues,unnamed,sectionCount:new Set(rows.map(r=>r.section)).size,scale:decimalString(scale)};
+}
+function csvCell(value) {
+  let s=String(value);
+  // Keep a source label from becoming a spreadsheet formula when opened in Excel.
+  if(/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;
+  return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function makeCSV(result) {
+  return '\uFEFF'+[['Name','Section Size','Length (mm)','Piece Count'],...result.rows.map(r=>[r.name,r.section,r.length,r.count])].map(row=>row.map(csvCell).join(',')).join('\r\n')+'\r\n';
+}
+self.onmessage=async e=> {
+  try {
+    const text=e.data.file?await e.data.file.text():e.data.text;
+    const result=extractMaterialList(text,e.data.exclude,(count,fraction,message)=>self.postMessage({kind:'progress',count,fraction,message}));
+    self.postMessage({kind:'done',result,csv:makeCSV(result)});
+  } catch(error) {self.postMessage({kind:'error',message:error.message || String(error)});}
+};
+</script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let activeWorker=null,current=null,filename='',csvText='',scopeExcluded=true,processing=false,chosenFile=null,completedAt='';
+function status(message,error=false){$('status').textContent=message;$('status').classList.toggle('error',error);}
+function busy(value){$('choose').disabled=value;$('exclude').disabled=value;$('drop').setAttribute('aria-busy',String(value));}
+function save(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function reportText(){
+ const r=current;
+ return ['IFC MATERIAL LIST — EXTRACTION REPORT','Tool version: 1.0.1','Source: '+filename,'Extracted: '+completedAt,
+  'Project length scale: '+r.scale+' mm/unit','Parsed entities: '+r.entities,'Beam/column/member candidates: '+r.members,
+  'Included pieces: '+r.pieces,'Grouped CSV rows: '+r.rows.length,'Distinct section names: '+r.sectionCount,
+  'Named connection/plate exclusions: '+r.excluded,'Missing/invalid records not counted: '+r.issues.length,
+  'Blank source names replaced with Unnamed: '+r.unnamed,
+  'Reconciliation: included + exclusions + missing/invalid = '+(r.pieces+r.excluded+r.issues.length)+' candidates.',
+  '', 'EXCLUSIONS',...Object.entries(r.exclusions).sort().map(([n,c])=>n+': '+c),
+  '', 'MISSING / INVALID DATA',...r.issues.map(i=>'#'+i.id+' | '+i.name+' | '+i.section+' | '+i.guid+' | '+i.reason),
+  '', 'METHOD AND SCOPE','Grouped by exact IFC Name, section and source length. CSV lengths are millimetres with source precision retained.',
+  'Reads IFCBEAM/IFCCOLUMN/IFCMEMBER and their standard-case variants. Other classes, including IFCPLATE/fasteners, are outside scope.',
+  'Exclude named plate/connection pieces: '+(scopeExcluded?'Yes':'No'),
+  'Length uses Length first, then NetLength, then GrossLength. Same-priority conflicting values are reported, not guessed.',
+  'No geometry-derived lengths, stock-length, waste or fabrication allowances. No Revit families required.',
+  'Original source Name and section fields are retained. Blank names use Unnamed. Formula-like CSV labels are prefixed with an apostrophe for spreadsheet safety.'
+ ].join('\r\n');
+}
+function render(result){
+ current=result;completedAt=new Date().toISOString();$('results').classList.remove('hidden');$('source').textContent=filename;
+ for(const [id,value] of [['pieces',result.pieces],['rows',result.rows.length],['sections',result.sectionCount],['skipped',result.excluded+result.issues.length]])$(id).textContent=value.toLocaleString();
+ $('warning').classList.toggle('hidden',!result.issues.length && !result.unnamed && result.members>0);
+ $('warning').textContent=result.members===0?'No supported beam, column or member objects found.':result.issues.length+' item(s) have missing, conflicting or invalid data and are not counted. '+result.unnamed+' blank source name(s) replaced with Unnamed. Check the extraction report.';
+ $('download').disabled=result.rows.length===0;$('issues').classList.toggle('hidden',!result.issues.length);
+ $('preview').replaceChildren();
+ for(const row of result.rows.slice(0,250)){
+  const tr=document.createElement('tr');
+  [row.name,row.section,row.length,row.count].forEach((value,i)=>{const td=document.createElement('td');td.textContent=String(value);if(i>1)td.className='num';tr.append(td);});$('preview').append(tr);
+ }
+ $('preview-note').textContent=result.rows.length>250?'Showing the first 250 rows. The CSV contains all '+result.rows.length+' rows.':'Showing all '+result.rows.length+' rows.';
+ $('notes').replaceChildren();const p=document.createElement('p');p.textContent=result.entities.toLocaleString()+' entities parsed; '+result.members.toLocaleString()+' member candidates. Length scale: '+result.scale+' mm per IFC unit.';$('notes').append(p);
+ const ul=document.createElement('ul');for(const [name,count] of Object.entries(result.exclusions).sort()){const li=document.createElement('li');li.textContent=name+': '+count.toLocaleString()+' excluded';ul.append(li);}$('notes').append(ul);
+ const note=document.createElement('p');note.textContent='Missing or invalid data: '+result.issues.length+'. Slanted objects are included when section and length data are available.';$('notes').append(note);
+ status('Complete. '+result.pieces.toLocaleString()+' pieces grouped into '+result.rows.length.toLocaleString()+' CSV rows.');
+}
+async function load(file){
+ if(!file || processing)return;
+ if(!/\.ifc$/i.test(file.name)){status('Choose an uncompressed .ifc file. Extract IFCZIP files first.',true);return;}
+ processing=true;chosenFile=file;current=null;csvText='';filename=file.name;scopeExcluded=$('exclude').checked;$('results').classList.add('hidden');busy(true);status('Reading '+file.name+'…');
+ try {
+  const blob=new Blob([$('worker-code').textContent],{type:'text/javascript'});const url=URL.createObjectURL(blob);
+  activeWorker=new Worker(url);URL.revokeObjectURL(url);
+  const finish=()=>{activeWorker?.terminate();activeWorker=null;processing=false;busy(false);$('file').value='';};
+  activeWorker.onmessage=e=>{
+   const data=e.data;
+   if(data.kind==='progress'){status(data.message || 'Reading IFC records… '+data.count.toLocaleString()+' entities ('+Math.min(99,Math.round(data.fraction*100))+'%)');return;}
+   if(data.kind==='done'){csvText=data.csv;render(data.result);finish();}
+   else if(data.kind==='error'){status('Could not extract this file: '+data.message,true);finish();}
+  };
+  activeWorker.onerror=e=>{status('Could not run the extractor: '+e.message,true);finish();};
+  activeWorker.postMessage({file,exclude:scopeExcluded});
+ } catch(error){activeWorker?.terminate();activeWorker=null;processing=false;busy(false);status('Could not read this file: '+error.message,true);}
+}
+function outputStem(){return filename.replace(/\.ifc$/i,'')+'_Material_List';}
+$('exclude').addEventListener('change',()=>{if(chosenFile)load(chosenFile);});
+$('choose').addEventListener('click',()=>$('file').click());$('file').addEventListener('change',()=>load($('file').files[0]));
+for(const type of ['dragenter','dragover'])$('drop').addEventListener(type,e=>{e.preventDefault();if(!processing)$('drop').classList.add('over');});
+for(const type of ['dragleave','drop'])$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.remove('over');if(type==='drop')load(e.dataTransfer.files[0]);});
+window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
+$('download').addEventListener('click',()=>{if(current)save(csvText,outputStem()+'.csv','text/csv;charset=utf-8');});
+$('report').addEventListener('click',()=>{if(current)save(reportText(),outputStem()+'_Report.txt','text/plain;charset=utf-8');});
+$('issues').addEventListener('click',()=>{
+ if(!current)return;
+ const cell=v=>{let s=String(v);if(/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+ const rows=[['IFC Entity','Name','Section Size','IFC GlobalId','Reason'],...current.issues.map(i=>[i.id,i.name,i.section,i.guid,i.reason])];
+ save('\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n',outputStem()+'_Missing_Data.csv','text/csv;charset=utf-8');
+});
+</script>
+</body>
+</html>

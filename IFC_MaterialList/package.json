@@ -1,0 +1,14 @@
+{
+  "name": "ifc-material-list",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Offline IFC property material-list extractor",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/extraction.test.cjs",
+    "test:browser": "node tests/browser.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

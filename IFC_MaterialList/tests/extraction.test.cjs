@@ -1,0 +1,33 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const html=fs.readFileSync(path.join(__dirname,'../IFC_Material_List_Tool.html'),'utf8');
+const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
+for(const [,attrs,code] of scripts)new vm.Script(code);
+const context=vm.createContext({self:{},console});
+vm.runInContext(scripts.find(s=>s[1].includes('worker-code'))[2],context);
+const extract=(text,exclude=true)=>context.extractMaterialList(text,exclude);
+function fixture(members=[{guid:'A',name:'BEAM',section:'UB254x146x31',length:'100.0'}],extra=''){
+ let lines=["#1=IFCSIUNIT(*,.LENGTHUNIT.,.MILLI.,.METRE.);",'#2=IFCUNITASSIGNMENT((#1));',"#3=IFCPROJECT('P',$,$,$,$,$,$,$,#2);"];
+ members.forEach((m,i)=>{const id=10+i*10;const q=s=>s===undefined?'$':"'"+s.replaceAll("'","''")+"'";
+ lines.push(`#${id}=${m.type||'IFCBEAM'}(${q(m.guid)},$,${q(m.name)},$,${q(m.section)},$,$,$);`);
+ if(m.length!==undefined) lines.push(`#${id+1}=IFCPROPERTYSINGLEVALUE('Length',$,IFCLENGTHMEASURE(${m.length}),$);`, `#${id+2}=IFCPROPERTYSET('Q',$,$,$,(#${id+1}));`, `#${id+3}=IFCRELDEFINESBYPROPERTIES('R',$,$,$,(#${id}),#${id+2});`);
+ });return 'ISO-10303-21; HEADER; ENDSEC; DATA;'+lines.join('\n')+extra+'ENDSEC;END-ISO-10303-21;';
+}
+test('exact decimal grouping and distinct names',()=>{const r=extract(fixture([{guid:'A',name:'BEAM',section:'UB',length:'100.0'},{guid:'B',name:'BEAM',section:'UB',length:'1.E2'},{guid:'C',name:'TIE',section:'UB',length:'100.0001'}]));assert.equal(r.pieces,3);assert.equal(r.rows.length,2);assert.equal(r.rows[0].count,2);assert.equal(r.rows[1].length,'100.0001');});
+test('all duplicate identities excluded, independent of record order',()=>{const r=extract(fixture([{guid:'A',name:'BEAM',section:'UB',length:'100'},{guid:'A',name:'COLUMN',section:'UC',length:'200'}]));assert.equal(r.pieces,0);assert.equal(r.issues.length,2);});
+test('exclusions toggle and standard-case classes',()=>{const f=fixture([{guid:'A',name:'ENDPLATE',section:'PL',length:'10',type:'IFCMEMBERSTANDARDCASE'}]);assert.equal(extract(f).excluded,1);assert.equal(extract(f,false).pieces,1);});
+test('missing and nonpositive lengths reported',()=>{const r=extract(fixture([{guid:'A',name:'B',section:'UB'},{guid:'B',name:'B',section:'UB',length:'0'}]));assert.equal(r.pieces,0);assert.equal(r.issues.length,2);});
+test('missing/blank GUID rejected',()=>{assert.equal(extract(fixture([{guid:'   ',name:'B',section:'UB',length:'1'}])).pieces,0);});
+test('same-priority conflicting lengths rejected',()=>{const r=extract(fixture(undefined,"#50=IFCPROPERTYSINGLEVALUE('Length',$,IFCLENGTHMEASURE(200),$);#51=IFCPROPERTYSET('X',$,$,$,(#50));#52=IFCRELDEFINESBYPROPERTIES('X',$,$,$,(#10),#51);"));assert.equal(r.pieces,0);assert.match(r.issues[0].reason,/Conflicting/);});
+test('explicit property units override project units',()=>{const f=fixture().replace('IFCLENGTHMEASURE(100.0),$','IFCLENGTHMEASURE(100.0),#50');const r=extract(f.replace('ENDSEC;END-ISO',"#50=IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);ENDSEC;END-ISO"));assert.equal(r.rows[0].length,'100000');});
+test('quantity lengths supported',()=>{const r=extract(fixture([{guid:'A',name:'B',section:'UB'}],"#50=IFCQUANTITYLENGTH('Length',$,$,125.5,$);#51=IFCELEMENTQUANTITY('Q',$,$,$,$,(#50));#52=IFCRELDEFINESBYPROPERTIES('R',$,$,$,(#10),#51);"));assert.equal(r.rows[0].length,'125.5');});
+test('STEP strings, Unicode and safe CSV',()=>{const r=extract(fixture([{guid:'A',name:"=a;b'c",section:'\\X2\\00D8\\X0\\',length:'1'}]));assert.equal(r.rows[0].section,'Ø');assert.ok(context.makeCSV(r).includes("'=a;b'c"));});
+test('reject incomplete data and duplicate entity IDs',()=>{assert.throws(()=>extract(fixture().replace('ENDSEC;END-ISO-10303-21;','')));assert.throws(()=>extract(fixture(undefined,'#1=IFCLABEL(1);')));});
+test('Revit type name and blank source name',()=>{const r=extract(fixture([{guid:'A',name:'Family:UC203:42',section:'generic',length:'1'},{guid:'B',name:'',section:'UB',length:'2'}]));assert.equal(r.rows[0].section,'UC203');assert.equal(r.unnamed,1);});
+test('source name whitespace retained for exact grouping',()=>{const r=extract(fixture([{guid:'A',name:' BEAM ',section:'UB',length:'1'},{guid:'B',name:'BEAM',section:'UB',length:'1'}]));assert.equal(r.rows.length,2);assert.ok(r.rows.some(row=>row.name===' BEAM '));});
+test('conversion units and Length priority',()=>{let f=fixture(undefined,"#50=IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);#51=IFCMEASUREWITHUNIT(IFCLENGTHMEASURE(0.3048),#50);#52=IFCCONVERSIONBASEDUNIT(*,.LENGTHUNIT.,'FOOT',#51);#53=IFCPROPERTYSINGLEVALUE('GrossLength',$,IFCLENGTHMEASURE(500),$);#54=IFCPROPERTYSET('X',$,$,$,(#53));#55=IFCRELDEFINESBYPROPERTIES('X',$,$,$,(#10),#54);").replace('IFCUNITASSIGNMENT((#1))','IFCUNITASSIGNMENT((#52))');assert.equal(extract(f).rows[0].length,'30480');});
+test('10,000 member synthetic schedule reconciles',()=>{const members=Array.from({length:10000},(_,i)=>({guid:'G'+i,name:'BEAM',section:'UB',length:'1234.5'}));const t=performance.now();const r=extract(fixture(members));assert.equal(r.pieces,10000);assert.equal(r.rows.length,1);console.log('10,000 members / '+r.entities+' entities: '+Math.round(performance.now()-t)+' ms');});
+test('optional real IFC fixtures reconcile',()=>{for(const file of process.argv.slice(2)){if(file.startsWith('--'))continue;const r=extract(fs.readFileSync(file,'utf8'));assert.equal(r.members,r.pieces+r.excluded+r.issues.length);assert.ok(r.members>0);console.log(JSON.stringify({fixture:path.basename(file),entities:r.entities,members:r.members,pieces:r.pieces,excluded:r.excluded,issues:r.issues.length,reasons:[...new Set(r.issues.map(i=>i.reason))]}));}});

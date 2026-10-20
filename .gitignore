@@ -1,0 +1,10 @@
+node_modules/
+test-results/
+playwright-report/
+*.ifc
+*.ifczip
+*.csv
+*.log
+Thumbs.db
+.DS_Store
+/IFC Material List/
