@@ -7,4 +7,21 @@ playwright-report/
 *.log
 Thumbs.db
 .DS_Store
-/IFC Material List/
+
+# IFC Viewer generated assets and local-only verification
+/IFC_Viewer/.cache/
+/IFC_Viewer/.local-tests/
+/IFC_Viewer/dist/
+/IFC_Viewer/release/
+/IFC_Viewer/public/vendor/
+/IFC_Viewer/test-results/
+/IFC_Viewer/*.zip
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+*.pem

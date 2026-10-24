@@ -1,0 +1,53 @@
+name: IFC Viewer release
+on:
+  push:
+    tags:
+      - 'ifc-viewer-v*'
+permissions:
+  contents: read
+concurrency:
+  group: ifc-viewer-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Validate version tag
+        working-directory: IFC_Viewer
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "ifc-viewer-v$version") { throw 'Tag does not match package.json version' }
+      - name: Test browser material-list extractor
+        working-directory: IFC_MaterialList
+        run: npm test
+      - name: Install viewer dependencies
+        working-directory: IFC_Viewer
+        run: npm ci
+      - name: Test viewer
+        working-directory: IFC_Viewer
+        run: npm test
+      - name: Build installer and portable ZIP
+        working-directory: IFC_Viewer
+        run: npm run release
+      - name: Publish downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $files = @(Get-ChildItem IFC_Viewer/release/downloads -File | Where-Object { $_.Name -match '^IFC-Viewer-.*-(Setup\.exe|Windows-x64\.zip)$|^SHA256SUMS\.txt$' } | ForEach-Object { $_.FullName })
+          if ($files.Count -ne 3) { throw 'Expected installer, portable ZIP and checksums' }
+          gh release create $env:GITHUB_REF_NAME @files --verify-tag --title "IFC Viewer $($env:GITHUB_REF_NAME -replace '^ifc-viewer-v','')" --notes-file IFC_Viewer/docs/RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

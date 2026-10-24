@@ -1,0 +1,72 @@
+{
+  "name": "local-ifc-viewer",
+  "productName": "IFC Viewer",
+  "version": "1.2.1",
+  "private": true,
+  "description": "Offline IFC viewer and material lists for Windows",
+  "author": "IFC Viewer",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "assets": "node scripts/assets.mjs",
+    "build": "npm run assets && tsc --noEmit && vite build",
+    "start": "electron .",
+    "package": "npm run build && node scripts/package.mjs",
+    "test:parser": "node scripts/parser-check.cjs",
+    "test:materials": "tsc src/material-data.ts --target es2022 --module es2022 --moduleResolution bundler --outDir .cache --skipLibCheck && node scripts/test-materials.mjs",
+    "test:display": "tsc src/display-state.ts src/material-data.ts --target es2022 --module es2022 --moduleResolution bundler --outDir .cache --skipLibCheck && node scripts/test-display.mjs",
+    "test": "npm run test:materials && npm run test:display",
+    "release": "npm run package && node scripts/distribute.mjs"
+  },
+  "dependencies": {
+    "@thatopen/components": "3.6.0",
+    "@thatopen/fragments": "3.6.0",
+    "camera-controls": "3.1.2",
+    "three": "0.182.0",
+    "web-ifc": "0.0.77"
+  },
+  "devDependencies": {
+    "@types/three": "0.182.0",
+    "electron": "45.0.0",
+    "electron-builder": "26.0.12",
+    "playwright-core": "^1.64.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1"
+  },
+  "build": {
+    "appId": "local.ifcviewer.desktop",
+    "productName": "IFC Viewer",
+    "directories": {
+      "output": "release/downloads"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "npmRebuild": false,
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "IFC-Viewer-${version}-Setup.exe",
+      "packElevateHelper": false
+    }
+  },
+  "license": "MIT"
+}
