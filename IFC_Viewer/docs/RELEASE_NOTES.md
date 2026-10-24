@@ -16,4 +16,4 @@ Rotate/pan/zoom and preset views; configurable member properties; searchable, so
 
 ## Validation and limits
 
-Automated tests and TypeScript/build checks pass. A private 227,362-byte IFC retains 38 geometry objects and original quantities. Previous 1.2.0 desktop interactions were tested. The 1.2.1 desktop launch, installer install/uninstall and large-model rendering have not been reverified. Quantities depend on exported IFC properties; the app does not estimate steel quantities from geometry.
+Automated tests, TypeScript/build checks and the complete Windows release build pass. Installer: 117,130,149 bytes; portable ZIP: 155,861,612 bytes. Both SHA-256 checksums were verified. A private 227,362-byte IFC retains 38 geometry objects and original quantities. Previous 1.2.0 desktop interactions were tested. The 1.2.1 desktop launch, installer install/uninstall and large-model rendering have not been reverified. Quantities depend on exported IFC properties; the app does not estimate steel quantities from geometry.

@@ -4,7 +4,7 @@ A local Windows x64 IFC viewer. No login, subscription, uploads or internet conn
 
 ## Start
 
-Download from [GitHub Releases](https://github.com/Hajtrak/Tools/releases) once published.
+Download [IFC Viewer 1.2.1 from GitHub Releases](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.2.1).
 
 **Installer:** run `IFC-Viewer-1.2.1-Setup.exe`. It installs for your Windows user and adds desktop and Start menu shortcuts. Open using either shortcut. Uninstall through Windows Settings → Apps. No administrator rights required.
 
