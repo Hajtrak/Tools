@@ -4,7 +4,7 @@ Version **1.2.1** — offline Windows x64 IFC viewer. No login, uploads, subscri
 
 ## Download and run
 
-Get the installer or portable ZIP from [GitHub Releases](https://github.com/Hajtrak/Tools/releases) once published.
+Download **[IFC Viewer 1.2.1](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.2.1)** from GitHub Releases.
 
 - **Installer:** `IFC-Viewer-1.2.1-Setup.exe`. Installs for your Windows user with desktop and Start menu shortcuts, without administrator rights. Uninstall through Windows Settings.
 - **Portable ZIP:** `IFC-Viewer-1.2.1-Windows-x64.zip`. Extract fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together.
