@@ -1,14 +1,14 @@
-# IFC Viewer 1.3.0
+# IFC Viewer 1.3.1
 
 Offline Windows x64 IFC viewer with member information and material lists.
 
 ## Downloads
 
-- `IFC-Viewer-1.3.0-Setup.exe` — installs for your Windows user with desktop and Start menu shortcuts.
-- `IFC-Viewer-1.3.0-Windows-x64.zip` — extract fully, then run `IFC Viewer/IFC Viewer.exe`.
+- `IFC-Viewer-1.3.1-Setup.exe` — installs for your Windows user with desktop and Start menu shortcuts.
+- `IFC-Viewer-1.3.1-Windows-x64.zip` — extract fully, then run `IFC Viewer/IFC Viewer.exe`.
 - `SHA256SUMS.txt` — SHA-256 checksums.
 
-## New in 1.3.0
+## New in 1.3.1
 
 - Show or hide IFC storeys and gridlines independently.
 - Show gridline names at both ends of each named axis; labels stay upright while rotating.

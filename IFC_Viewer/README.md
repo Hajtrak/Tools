@@ -1,13 +1,13 @@
 # IFC Viewer
 
-Version **1.3.0** — offline Windows x64 IFC viewer. No login, uploads, subscription or runtime internet connection.
+Version **1.3.1** — offline Windows x64 IFC viewer. No login, uploads, subscription or runtime internet connection.
 
 ## Download and run
 
-Download **[IFC Viewer 1.3.0](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.3.0)** from GitHub Releases.
+Download **[IFC Viewer 1.3.1](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.3.1)** from GitHub Releases.
 
-- **Installer:** `IFC-Viewer-1.3.0-Setup.exe`. Installs for your Windows user with desktop and Start menu shortcuts, without administrator rights. Uninstall through Windows Settings.
-- **Portable ZIP:** `IFC-Viewer-1.3.0-Windows-x64.zip`. Extract fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together.
+- **Installer:** `IFC-Viewer-1.3.1-Setup.exe`. Installs for your Windows user with desktop and Start menu shortcuts, without administrator rights. Uninstall through Windows Settings.
+- **Portable ZIP:** `IFC-Viewer-1.3.1-Windows-x64.zip`. Extract fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together.
 - `SHA256SUMS.txt` provides download checksums.
 
 Builds are unsigned; Windows may display an unrecognised-publisher warning. IFC file associations are unchanged. Both versions contain the same offline viewer.
