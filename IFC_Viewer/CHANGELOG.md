@@ -1,6 +1,14 @@
 # Changelog
 
-## 1.2.1 — 2026-10-24
+## 1.3.0 â€” 2026-10-27
+
+- Show/hide IFC storeys and gridlines independently.
+- Display grid axis names at both ends, with a separate name toggle.
+- Show only the lowest horizontal grid elevation by default; restore all elevations with Base level only.
+- Orbit around selected members or groups; zoom to selection using Z.
+- Add grid visibility regression tests covering mixed elevations and transformed placements.
+
+## 1.2.1 ï¿½ 2026-10-24
 
 - Apply colour and visibility changes only to affected members.
 - Preserve material table DOM during selection and cache grouped/sorted rows.

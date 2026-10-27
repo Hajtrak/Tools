@@ -66,3 +66,15 @@ Totals state how many members have usable length/weight. Missing values are excl
 - Reorder columns by dragging a heading onto another heading, or open Columns and use the up/down arrows in the Column order section. Up means left; down means right. The Display action column stays at the left and is not exported. Other columns, including Quantity and grouping fields, can be moved. Column order is remembered on this computer and used in CSV/TXT exports.
 
 Colours and hidden members apply only to the currently open model. Opening another IFC or restarting resets them, and does not modify the original IFC.
+
+## Levels, gridlines and selection navigation
+
+Open **Levels & gridlines** in the upper-left corner of the view. Toggle a level to show or hide its members; a mixed checkbox means only some members are visible. **Show all** in the material list restores hidden members. Gridlines can be toggled separately when the IFC contains supported grid axes. Levels depend on the storey structure exported in the IFC.
+
+Select a member in the view or a member/group in the material list. Rotation uses the centre of the selection. Choose **Zoom to selection** or press **Z** to frame all selected visible members. **Fit model (F)** still frames the complete model.
+
+
+Gridline names appear at both ends of each named IFC grid axis and stay upright when rotating the view. Use **Gridline names** under **Levels & gridlines** to toggle them. Hiding gridlines also hides their names. Unnamed axes have no name label.
+
+
+**Base level only** is enabled by default. It displays horizontal grid axes at the lowest exported grid elevation and hides upper copies, including their names. Clear the checkbox to see all grid elevations. This filter is independent of structural-level visibility and does not modify the IFC. Axes within 10 mm of the lowest elevation are treated as the same level.

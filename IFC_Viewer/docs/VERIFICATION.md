@@ -51,3 +51,7 @@ Existing build warnings concern the libraries' optional WebGPU imports and the l
 ## Distribution packaging
 
 The installer configuration targets Windows x64, current-user installation and shortcuts. Source/build tests pass. The local portable ZIP was produced and archive-tested. Initial automated NSIS compilation was blocked. The complete release build subsequently succeeded in a normal Git Bash session on 24 October 2026. The installer is 117,130,149 bytes and the portable ZIP is 155,861,612 bytes. Both SHA-256 checksums were independently verified; the installer identifies as IFC Viewer 1.2.1. The tag-triggered GitHub workflow builds both release assets on Windows. Installation and uninstallation remain unverified. Private model fixtures and local diagnostics are excluded from the commit.
+
+## Version 1.3.0 — 27 October 2026
+
+Material-data, display-state and grid-visibility automated tests pass. TypeScript and production build checks pass; the portable Windows app was rebuilt. Grid filtering tests cover mixed elevations within one grid, transformed placements, 10 mm tolerance, label exclusion, restoring all axes and preserving the overall visibility toggle. The user confirmed the navigation and gridline updates during this session. Base-level filtering has automated coverage; installer installation/uninstallation, large-model rendering and varied IFC exporters remain unverified.

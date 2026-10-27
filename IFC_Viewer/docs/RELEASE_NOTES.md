@@ -1,19 +1,25 @@
-# IFC Viewer 1.2.1
+# IFC Viewer 1.3.0
 
 Offline Windows x64 IFC viewer with member information and material lists.
 
 ## Downloads
 
-- `IFC-Viewer-1.2.1-Setup.exe` — installs for your Windows user with desktop and Start menu shortcuts, without administrator rights.
-- `IFC-Viewer-1.2.1-Windows-x64.zip` — extract fully, then run `IFC Viewer/IFC Viewer.exe`.
+- `IFC-Viewer-1.3.0-Setup.exe` — installs for your Windows user with desktop and Start menu shortcuts.
+- `IFC-Viewer-1.3.0-Windows-x64.zip` — extract fully, then run `IFC Viewer/IFC Viewer.exe`.
 - `SHA256SUMS.txt` — SHA-256 checksums.
 
-Unsigned builds may trigger Windows publisher warnings. No accounts, uploads, automatic updates or runtime internet connection. IFC associations are unchanged.
+## New in 1.3.0
 
-## Features
+- Show or hide IFC storeys and gridlines independently.
+- Show gridline names at both ends of each named axis; labels stay upright while rotating.
+- Base level only is enabled by default, hiding grid copies at upper elevations without hiding structural members. Clear it to show all grid elevations.
+- Orbit around the combined centre of selected members or material-list groups.
+- Zoom to selection with the toolbar button or Z. Fit model (F) still frames the whole model.
 
-Rotate/pan/zoom and preset views; configurable member properties; searchable, sortable and grouped material lists; column reordering; TXT/CSV export; individual/group colours and hide/show. Version 1.2.1 improves selection/display efficiency and handles missing metadata safely.
+Existing material lists, grouping, member colours, visibility controls and CSV/TXT exports remain available. All model processing stays local; source IFC files are unchanged.
 
 ## Validation and limits
 
-Automated tests, TypeScript/build checks and the complete Windows release build pass. Installer: 117,130,149 bytes; portable ZIP: 155,861,612 bytes. Both SHA-256 checksums were verified. A private 227,362-byte IFC retains 38 geometry objects and original quantities. Previous 1.2.0 desktop interactions were tested. The 1.2.1 desktop launch, installer install/uninstall and large-model rendering have not been reverified. Quantities depend on exported IFC properties; the app does not estimate steel quantities from geometry.
+Material-data, display-state and new grid-visibility tests pass, along with TypeScript and production build checks. Grid tests cover multiple elevations within one grid, transformed placements, elevation tolerance, labels and visibility restoration. The portable app was rebuilt. Installer installation/uninstallation, large models and varied IFC exporters have not been reverified. Base means the lowest exported horizontal grid elevation, with 10 mm tolerance; it does not depend on storey names. Gridlines and names must be present in the IFC export.
+
+Builds are unsigned. No accounts, uploads, automatic updates or runtime internet connection. Quantities depend on exported IFC properties.

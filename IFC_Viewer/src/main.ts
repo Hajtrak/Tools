@@ -4,6 +4,8 @@ import { LodMode, RenderedFaces, type FragmentsModel } from '@thatopen/fragments
 import CameraControls from 'camera-controls';
 import * as WEBIFC from 'web-ifc';
 import './style.css';
+import { createGridLabels } from './grid-labels';
+import { setBaseGridOnly } from './grid-visibility';
 import { readRows } from './material-data';
 import { materialUI } from './material-ui';
 import { DisplayState, displayDelta, type DisplayPlan, type DisplayAction } from './display-state';
@@ -35,6 +37,11 @@ let appliedDisplay:DisplayPlan|undefined;
 let pickToken=0;
 let choosing=false;
 let displayDirty=false;
+let selectionBox = new THREE.Box3();
+let selectionKey = '';
+let grids: THREE.Group | undefined;
+let gridLabels: ReturnType<typeof createGridLabels> | undefined;
+let levels: {name:string;ids:number[];input:HTMLInputElement}[] = [];
 const dataUI = materialUI(selectMembers, () => { world?.renderer?.resize(); }, showError, displayState, changeDisplay);
 dataUI.reset();
 async function updateDisplay(displayChanged=false) {
@@ -54,7 +61,16 @@ async function updateDisplay(displayChanged=false) {
    appliedDisplay=plan;
   }catch(error){appliedDisplay=undefined;throw error;}
   if(target!==model||token!==selectionToken)return;
-  dataUI.setSelection(displayState.selected,displayDirty);displayDirty=false;await fragments.core.update(true);
+  dataUI.setSelection(displayState.selected,displayDirty);displayDirty=false;
+  const ids=displayState.selected.filter(id=>!displayState.hidden.has(id));
+  const key=ids.join(',');
+  if(key!==selectionKey){
+   const box=ids.length?await target.getMergedBox(ids):new THREE.Box3();
+   if(target!==model||token!==selectionToken)return;
+   selectionKey=key;selectionBox.copy(box);
+   setSelectionPivot();
+  }
+  syncVisibilityControls(); controlsEnabled(); await fragments.core.update(true);
  });
  return selectionWork;
 }
@@ -73,6 +89,58 @@ async function changeDisplay(action:DisplayAction){
 function controlsEnabled() {
   openButton.disabled = busy;
   for (const b of viewButtons) b.disabled = busy || !model;
+  $<HTMLButtonElement>('focus-selection').disabled=busy||!model||selectionBox.isEmpty();
+  $<HTMLInputElement>('gridlines').disabled=busy||!grids?.children.length;
+  $<HTMLInputElement>('grid-names').disabled=busy||!gridLabels?.count;
+  $<HTMLInputElement>('base-grid-only').disabled=busy||!grids?.children.length;
+  for(const level of levels)level.input.disabled=busy;
+}
+function setSelectionPivot(){
+ if(selectionBox.isEmpty())return;
+ const center=selectionBox.getCenter(new THREE.Vector3());
+ world.camera.controls.setOrbitPoint(center.x,center.y,center.z);
+}
+function syncVisibilityControls(){
+ for(const level of levels){
+  const count=level.ids.filter(id=>displayState.hidden.has(id)).length;
+  level.input.checked=count<level.ids.length;level.input.indeterminate=count>0&&count<level.ids.length;
+ }
+}
+async function prepareVisibility(target:FragmentsModel){
+ const geometry=new Set(await target.getItemsIdsWithGeometry());
+ const tree=await target.getSpatialStructure();
+ const storeys: {id:number;ids:number[]}[]=[];
+ function visit(node:typeof tree):number[]{
+  const ids=[...(node.localId!==null&&geometry.has(node.localId)?[node.localId]:[]),...(node.children??[]).flatMap(visit)];
+  if(node.category==='IFCBUILDINGSTOREY'&&node.localId!==null)storeys.push({id:node.localId,ids:[...new Set(ids)]});
+  return ids;
+ }
+ visit(tree);
+ const data=await target.getItemsData(storeys.map(s=>s.id),{attributesDefault:true});
+ const options=$('level-options');options.replaceChildren();
+ levels=storeys.map((storey,index)=>{
+  const item=data.find(item=>{const id=item._localId;return id&&!Array.isArray(id)&&id.value===storey.id;});
+  const attr=item?.Name;
+  const name=String(attr&&!Array.isArray(attr)?attr.value:`Level ${index+1}`);
+  const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=true;
+  label.append(input,document.createTextNode(name));options.append(label);
+  input.addEventListener('change',()=>{void changeDisplay({kind:'visibility',ids:storey.ids,visible:input.checked}).catch(showError);});
+  return {name,ids:storey.ids,input};
+ });
+ if(!levels.length)options.textContent='No levels in this IFC.';
+ grids=await target.getGrids();
+ target.getGridMaterial().color.set('#526d7b');
+ target.object.add(grids);
+ gridLabels=createGridLabels(grids);
+ $<HTMLInputElement>('base-grid-only').checked=true;
+ setBaseGridOnly(grids,true);
+ const namesInput=$<HTMLInputElement>('grid-names');namesInput.checked=true;
+ const gridInput=$<HTMLInputElement>('gridlines');gridInput.checked=true;
+ $('grid-note').textContent=grids.children.length?'':'(none in this IFC)';
+}
+async function focusSelection(){
+ if(busy||!model||selectionBox.isEmpty())return;
+ await orient(undefined,true,selectionBox);
 }
 function errorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -96,6 +164,10 @@ async function clearModel() {
   await selectionWork.catch(()=>{});
   appliedDisplay=undefined;
   displayState.reset();
+  gridLabels?.dispose();gridLabels=undefined;
+  selectionBox.makeEmpty();selectionKey='';grids=undefined;levels=[];
+  $('level-options').textContent='Open an IFC to see its levels.';
+  $('grid-note').textContent='';
   dataUI.reset();
   model = undefined;
   for (const id of [...fragments.list.keys()]) await fragments.core.disposeModel(id);
@@ -111,13 +183,13 @@ async function clearModel() {
   controlsEnabled();
 }
 
-async function orient(view?: string, smooth = true) {
+async function orient(view?: string, smooth = true, fitBounds=bounds) {
   if (!model || bounds.isEmpty()) return;
   if (view) currentView = view;
   const camera = world.camera;
   // Perspective navigation works consistently with orbit and zoom-to-pointer.
-  const center = bounds.getCenter(new THREE.Vector3());
-  const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 0.01);
+  const center = fitBounds.getCenter(new THREE.Vector3());
+  const radius = Math.max(fitBounds.getSize(new THREE.Vector3()).length() / 2, 0.01);
   const directions: Record<string, THREE.Vector3> = {
     iso: new THREE.Vector3(1, 0.7, 1), front: new THREE.Vector3(0, 0, 1),
     side: new THREE.Vector3(1, 0, 0), top: new THREE.Vector3(0, 1, 0.00001),
@@ -129,7 +201,9 @@ async function orient(view?: string, smooth = true) {
   const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * aspect);
   const distance = radius / Math.sin(Math.min(vertical, horizontal) / 2) * 1.18;
   const pos = center.clone().addScaledVector(dir.normalize(), distance);
+  await camera.controls.setFocalOffset(0,0,0,smooth);
   await camera.controls.setLookAt(pos.x, pos.y, pos.z, center.x, center.y, center.z, smooth);
+  setSelectionPivot();
   for (const b of viewButtons) b.classList.toggle('active', b.dataset.view === currentView);
   await fragments.core.update(true);
 }
@@ -178,6 +252,10 @@ async function openModel(file: LocalFile) {
     world.camera.controls.minDistance = Math.max(.001, radius / 10000);
     world.camera.controls.maxDistance = radius * 100;
     loading('Preparing view…', 95);
+    try { await prepareVisibility(model); } catch(error) {
+      $('level-options').textContent='Level or gridline information could not be read.';
+      console.warn('IFC visibility controls unavailable',error);
+    }
     // Small steel details must remain full geometry rather than LOD lines.
     await model.setLodMode(LodMode.ALL_GEOMETRY);
     await orient('iso', false);
@@ -238,6 +316,7 @@ async function init() {
   fragments = components.get(OBC.FragmentsManager);
   fragments.init(new URL('vendor/fragments-worker.mjs', document.baseURI).href);
   controls.addEventListener('update', () => { void fragments.core.update(); });
+  controls.addEventListener('controlstart',()=>{if(!busy)setSelectionPivot();});
   fragments.core.models.materials.list.onItemSet.add(({ value: material }) => {
     if (!('isLodMaterial' in material && material.isLodMaterial)) {
       material.polygonOffset = true;
@@ -268,12 +347,17 @@ async function init() {
   viewport.addEventListener('contextmenu' , e => e.preventDefault());
   $('open').addEventListener('click', () => void chooseFile());
   $('fit').addEventListener('click', () => void orient());
+  $('focus-selection').addEventListener('click',()=>{void focusSelection().catch(showError);});
+  $('gridlines').addEventListener('change',()=>{if(grids)grids.visible=$<HTMLInputElement>('gridlines').checked;});
+  $('grid-names').addEventListener('change',()=>{gridLabels?.setVisible($<HTMLInputElement>('grid-names').checked);});
+  $('base-grid-only').addEventListener('change',()=>{if(grids)setBaseGridOnly(grids,$<HTMLInputElement>('base-grid-only').checked);});
   $('dismiss').addEventListener('click', () => { $('error').hidden = true; });
   for (const b of viewButtons) if (b.dataset.view) b.addEventListener('click', () => void orient(b.dataset.view));
   document.addEventListener('keydown', e => {
     if ((e.target as HTMLElement)?.matches('input,textarea,select') || document.querySelector('dialog[open]')) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); void chooseFile(); }
     else if (!e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f' && !busy) { e.preventDefault(); void orient(); }
+    else if (!e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'z' && !busy) { e.preventDefault(); void focusSelection().catch(showError); }
     else if (e.key === 'Escape') $('error').hidden = true;
   });
   let dragDepth = 0;
@@ -297,6 +381,8 @@ async function init() {
       state: () => ({ busy, models: fragments.list.size, currentView, box: { min: bounds.min.toArray(), max: bounds.max.toArray() }, camera: world.camera.three.position.toArray(), target: controls.getTarget(new THREE.Vector3()).toArray(), filename: $('filename').textContent, error: $('error').hidden ? null : $('error-text').textContent, tiles: model?.tiles.size, visibleItems: model?.visibleItems.size }),
       rows: () => dataUI.getRows(),
       select: selectMembers,
+      focusSelection,
+      levels:()=>levels.map(l=>({name:l.name,ids:l.ids})),
       display: () => ({hidden:[...displayState.hidden],colours:[...displayState.colours],selected:displayState.selected}),
       changeDisplay,
       geometry: async () => model ? { categories: await model.getCategories(), items: await model.getItemsIdsWithGeometry() } : null,
