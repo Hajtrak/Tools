@@ -12,7 +12,7 @@ Offline tools for IFC models and material lists.
 
 ## IFC Viewer
 
-[Download IFC Viewer 1.3.1 — installer or portable ZIP](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.3.1). Choose Setup.exe for installation or Windows-x64.zip for portable use. GitHub source ZIPs are for developers.
+[Download IFC Viewer 1.3.2 — installer or portable ZIP](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.3.2). Choose Setup.exe for installation or Windows-x64.zip for portable use. GitHub source ZIPs are for developers.
 
 [IFC_Viewer](IFC_Viewer/) contains a portable Windows desktop IFC viewer with 3D navigation, member properties, configurable material lists, TXT/CSV exports, colours and visibility controls.
 

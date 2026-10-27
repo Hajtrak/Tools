@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.1 — 2026-10-27
+## 1.3.2 — 2026-10-27
 
 - Show/hide IFC storeys and gridlines independently.
 - Display grid axis names at both ends, with a separate name toggle.

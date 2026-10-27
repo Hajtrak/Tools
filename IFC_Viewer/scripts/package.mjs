@@ -1,11 +1,19 @@
 import { mkdir, cp, rename, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { spawn } from 'node:child_process';
 const require = createRequire(import.meta.url);
 const asar = require('@electron/asar');
 const root = process.cwd();
 const target = path.resolve('release/IFC Viewer');
 const staging = path.resolve('release/application');
+// Fresh CI installs may omit Electron's binary download lifecycle step.
+// The installer exits immediately when the matching runtime is already present.
+await new Promise((resolve,reject)=>{
+ const child=spawn(process.execPath,[require.resolve('electron/install.js')],{stdio:'inherit',windowsHide:true});
+ child.on('error',reject);
+ child.on('exit',code=>code===0?resolve():reject(new Error(`Electron runtime setup exited ${code}`)));
+});
 await mkdir(target, { recursive: true });
 await cp('node_modules/electron/dist', target, { recursive: true });
 await rename(path.join(target,'electron.exe'),path.join(target,'IFC Viewer.exe'));
