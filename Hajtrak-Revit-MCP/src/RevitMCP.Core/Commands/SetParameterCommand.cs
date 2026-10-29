@@ -1,0 +1,189 @@
+using System;
+using System.Text.Json.Nodes;
+using Autodesk.Revit.DB;
+
+namespace RevitMCPAddin.Commands;
+
+/// <summary>
+/// Set a single parameter on a single element by name.
+///
+/// Parameters:
+///   - id:             long, required
+///   - parameterName:  string, required
+///   - value:          any, required (string / number / bool / { id: long })
+///   - units:          "meters"|"feet"|"internal", optional, default "internal".
+///                     Applies unit conversion for Double storage-type parameters
+///                     that carry measurable units (length, area, volume, etc.).
+///                     "internal" = raw Revit internal units (feet for length).
+///                     Pass "meters" or "feet" for automatic conversion via
+///                     UnitUtils.ConvertToInternalUnits.  Dimensionless doubles
+///                     (ratio, percentage, etc.) are never converted regardless
+///                     of this field.
+/// </summary>
+public sealed class SetParameterCommand : IRevitCommand, IVerifiableCommand
+{
+    public string Name => "set_parameter";
+    public bool IsReadOnly => false;
+    public string RiskLevel => "medium";
+
+    public JsonNode? Execute(CommandContext ctx)
+    {
+        var doc = ctx.RequireDoc();
+        var p = ctx.Parameters;
+
+        var idValue = P.Long(p, "id");
+        var paramName = P.StrOrNull(p, "parameterName") ?? "";
+        var valueNode = p["value"]
+            ?? throw new RevitCommandException("bad_request", "Missing required parameter 'value'.");
+        var units = P.StrOrNull(p, "units") ?? "internal";
+
+        var element = doc.GetElement(new ElementId(idValue))
+            ?? throw new RevitCommandException("not_found", $"No element with id {idValue}.");
+
+        var param = ParameterAccess.Resolve(element, p);
+        paramName = param.Definition.Name;
+        ParameterAccess.Guard(param, valueNode, p);
+
+        if (param.IsReadOnly)
+            throw new RevitCommandException("read_only_parameter", $"Parameter '{paramName}' is read-only.");
+
+        var previousValueString = SafeAsValueString(param);
+
+        bool wrote;
+        bool unitConversionApplied = false;
+
+        switch (param.StorageType)
+        {
+            case StorageType.String:
+                wrote = param.Set(P.StrFrom(valueNode, "value"));
+                break;
+
+            case StorageType.Integer:
+                wrote = valueNode.GetValueKind() is System.Text.Json.JsonValueKind.True
+                                                  or System.Text.Json.JsonValueKind.False
+                    ? param.Set(P.BoolFrom(valueNode, "value") ? 1 : 0)
+                    : param.Set(P.IntFrom(valueNode, "value"));
+                break;
+
+            case StorageType.Double:
+            {
+                var raw = P.DblFrom(valueNode, "value");
+                var converted = ConvertToInternal(param, raw, units, out unitConversionApplied);
+                wrote = param.Set(converted);
+                break;
+            }
+
+            case StorageType.ElementId:
+            {
+                long target;
+                if (valueNode is JsonObject obj && obj["id"] is JsonNode idn)
+                    target = P.LongFrom(idn, "value.id");
+                else
+                    target = P.LongFrom(valueNode, "value");
+                wrote = param.Set(new ElementId(target));
+                break;
+            }
+
+            default:
+                throw new RevitCommandException("invalid_parameter",
+                    $"Unsupported StorageType '{param.StorageType}' for '{paramName}'.");
+        }
+
+        var newValueString = SafeAsValueString(param);
+
+        var result = new JsonObject
+        {
+            ["id"] = element.Id.Value,
+            ["affected"] = Affected.Modified(element.Id.Value),
+            ["parameterName"] = paramName,
+            ["parameterId"] = param.Id.Value,
+            ["targetIsType"] = element is ElementType,
+            ["storageType"] = param.StorageType.ToString(),
+            ["written"] = wrote,
+            ["newValueString"] = newValueString,
+            ["changes"] = new JsonObject
+            {
+                ["before"] = previousValueString,
+                ["after"] = newValueString,
+            },
+            ["changeSummary"] = $"Set '{paramName}' on element {idValue}: '{previousValueString}' → '{newValueString}'",
+        };
+
+        if (param.StorageType == StorageType.Double)
+        {
+            result["inputUnits"] = units;
+            result["unitConversionApplied"] = unitConversionApplied;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Re-reads the parameter after the commit and compares it with the requested value after the
+    /// same coercion and unit conversion the write used. Catches <c>Parameter.Set</c> returning false
+    /// (previously reported only as <c>written:false</c> under <c>ok:true</c>) and values Revit changed
+    /// while committing.
+    /// </summary>
+    public VerifyResult Verify(CommandContext ctx, JsonObject result)
+    {
+        var doc = ctx.RequireDoc();
+        var p = ctx.Parameters;
+        var id = P.Long(p, "id");
+        var el = doc.GetElement(new ElementId(id));
+        if (el is null) return VerifyResult.Fail($"element {id} no longer exists after commit");
+        var param = ParameterAccess.Resolve(el, p);
+        var expected = ReadBack.ExpectedFromJson(param, p["value"]!, P.StrOrNull(p, "units") ?? "internal", "value");
+        var m = ReadBack.ParameterMismatch(param, expected);
+        return m is null ? VerifyResult.Pass($"{param.Definition.Name} = {ReadBack.SafeValueString(param)}") : VerifyResult.Fail(m);
+    }
+
+    /// <summary>
+    /// Convert a user-supplied double to Revit internal units based on the
+    /// parameter's spec type.  The branching decision (which unit, or fail
+    /// closed) lives in the pure, unit-tested <see cref="UnitConversionPolicy"/>;
+    /// this method only does the Revit-coupled work of classifying the
+    /// <c>ForgeTypeId</c> and calling <c>UnitUtils.ConvertToInternalUnits</c>.
+    /// </summary>
+    internal static double ConvertToInternal(Parameter param, double value, string units,
+        out bool conversionApplied)
+    {
+        conversionApplied = false;
+
+        var spec = ClassifySpec(param.Definition.GetDataType());
+        var choice = UnitConversionPolicy.Decide(spec, units, param.Definition.Name);
+        if (choice == UnitChoice.NoConversion) return value;
+
+        conversionApplied = true;
+        return UnitUtils.ConvertToInternalUnits(value, ToUnitTypeId(choice));
+    }
+
+    /// <summary>Maps a Revit <c>ForgeTypeId</c> spec to the testable <see cref="UnitSpec"/>.</summary>
+    private static UnitSpec ClassifySpec(ForgeTypeId specType)
+    {
+        if (!UnitUtils.IsMeasurableSpec(specType)) return UnitSpec.Dimensionless;
+        if (specType == SpecTypeId.Length) return UnitSpec.Length;
+        if (specType == SpecTypeId.Area)   return UnitSpec.Area;
+        if (specType == SpecTypeId.Volume) return UnitSpec.Volume;
+        if (specType == SpecTypeId.Angle) return UnitSpec.Angle;
+        return UnitSpec.OtherMeasurable;
+    }
+
+    private static ForgeTypeId ToUnitTypeId(UnitChoice choice) => choice switch
+    {
+        UnitChoice.Meters       => UnitTypeId.Meters,
+        UnitChoice.Feet         => UnitTypeId.Feet,
+        UnitChoice.SquareMeters => UnitTypeId.SquareMeters,
+        UnitChoice.SquareFeet   => UnitTypeId.SquareFeet,
+        UnitChoice.CubicMeters  => UnitTypeId.CubicMeters,
+        UnitChoice.CubicFeet    => UnitTypeId.CubicFeet,
+        UnitChoice.Degrees      => UnitTypeId.Degrees,
+        UnitChoice.Radians      => UnitTypeId.Radians,
+        _ => throw new RevitCommandException("invalid_parameter",
+            $"Internal error: unmapped UnitChoice '{choice}'."),
+    };
+
+    private static string? SafeAsValueString(Parameter p)
+    {
+        try { return p.AsValueString(); } catch { return null; }
+    }
+}

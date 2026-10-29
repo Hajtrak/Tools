@@ -1,6 +1,17 @@
 # Tools
 
-Offline tools for IFC models and material lists.
+Tools for IFC models, material lists and Revit workflows.
+
+## Hajtrak Revit MCP
+
+[Hajtrak-Revit-MCP](Hajtrak-Revit-MCP/) is a development preview of a local Revit MCP integration for model inspection, structural modelling and review workflows. It retains 94 upstream tools and adds bulk inspection, structural snapshots, operation recovery/status and ordinary save.
+
+- [Overview and validation status](Hajtrak-Revit-MCP/README.md)
+- [Build, installation and rollback](Hajtrak-Revit-MCP/docs/BUILD_AND_INSTALL.md)
+- [Custom changes and acceptance matrix](Hajtrak-Revit-MCP/docs/CUSTOM_BUILD.md)
+- [Original project attribution and third-party notices](Hajtrak-Revit-MCP/THIRD_PARTY_NOTICES.md)
+
+Based on [KenLP/RevitMCPServer](https://github.com/KenLP/RevitMCPServer), with its original MIT licence preserved. Full live model acceptance remains pending.
 
 ## IFC Material List
 

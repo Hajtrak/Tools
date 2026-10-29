@@ -1,0 +1,179 @@
+using System.Collections.Generic;
+
+namespace RevitMCPAddin.Commands;
+
+public sealed class CommandRegistry
+{
+    private readonly Dictionary<string, IRevitCommand> _commands = new();
+
+    // Command name -> pack file, for commands registered from a pack (see CommandPacks).
+    private readonly Dictionary<string, string> _packOf = new();
+
+    public void Register(IRevitCommand handler) => _commands[handler.Name] = handler;
+
+    /// <summary>
+    /// Registers a pack command unless the name is taken. Unlike <see cref="Register"/>, never
+    /// replaces: a pack cannot shadow a built-in or another pack. <paramref name="owner"/> names
+    /// whoever already holds the name ("built-in" or the pack file) when this returns false.
+    /// </summary>
+    public bool TryRegisterFromPack(IRevitCommand handler, string packFile, out string? owner)
+    {
+        if (_commands.ContainsKey(handler.Name))
+        {
+            owner = _packOf.TryGetValue(handler.Name, out var other) ? other : "built-in";
+            return false;
+        }
+        _commands[handler.Name] = handler;
+        _packOf[handler.Name] = packFile;
+        owner = null;
+        return true;
+    }
+
+    /// <summary>The pack file a command came from, or null for a built-in command.</summary>
+    public string? PackOf(string name) => _packOf.TryGetValue(name, out var f) ? f : null;
+
+    /// <summary>Commands registered from packs (subset of <see cref="Count"/>).</summary>
+    public int PackCommandCount => _packOf.Count;
+
+    /// <summary>Start-up report for every configured pack, loaded or not.</summary>
+    public List<PackReport> Packs { get; } = new();
+
+    public bool TryGet(string name, out IRevitCommand? handler) =>
+        _commands.TryGetValue(name, out handler);
+
+    public IEnumerable<string> Names => _commands.Keys;
+
+    /// <summary>Number of registered commands (the real capability surface).</summary>
+    public int Count => _commands.Count;
+
+    public IEnumerable<(string Name, bool IsReadOnly, string RiskLevel, string ExecutionKind)> Describe()
+    {
+        foreach (var kv in _commands)
+            yield return (kv.Key, kv.Value.IsReadOnly, kv.Value.RiskLevel,
+                          ((IRevitCommand)kv.Value).Execution.ToString());
+    }
+
+    public void RegisterDefaults()
+    {
+        // === Diagnostics ===
+        Register(new PingCommand());
+        Register(new GetVersionCommand());
+        Register(new GetDocumentInfoCommand());
+        Register(new SaveDocumentCommand());
+
+        // === Inspection / introspection ===
+        Register(new ListElementsCommand());
+        Register(new GetElementInfoCommand());
+        Register(new FindElementByUniqueIdCommand());
+        Register(new GetElementRoomsCommand());
+        Register(new FindElementsCommand());
+        Register(new QueryWhereCommand());
+        Register(new GetParameterCommand());
+        Register(new ListLevelsCommand());
+        Register(new ListWallTypesCommand());
+        Register(new ListFloorTypesCommand());
+        Register(new ListCategoriesCommand());
+        Register(new ListFamiliesCommand());
+        Register(new ListFamilyTypesCommand());
+        Register(new ListSheetsCommand());
+        Register(new ListRoomsCommand());
+        Register(new ListSpacesCommand());
+        Register(new ListMaterialsCommand());
+        Register(new ListPhasesCommand());
+        Register(new ListViewTemplatesCommand());
+        Register(new GetViewsCommand());
+        Register(new GetActiveViewCommand());
+        Register(new GetSelectedElementsCommand());
+        Register(new GetLinkedFilesCommand());
+        Register(new GetLinkedElementsCommand());
+        Register(new GetElementGeometryCommand());
+        Register(new InspectElementsCommand());
+        Register(new StructuralSnapshotCommand());
+        Register(new GetViewImageCommand());
+        Register(new GetModelHealthCommand());
+        Register(new GetWorksetsCommand());
+        Register(new GetScheduleDataCommand());
+        Register(new GetDoorsCommand());
+
+        // === Creation — architecture ===
+        Register(new CreateWallCommand());
+        Register(new CreateFloorCommand());
+        Register(new CreateLevelCommand());
+        Register(new CreateGridCommand());
+        Register(new CreateRoomCommand());
+        Register(new CreateColumnCommand());
+        Register(new CreateBeamCommand());
+        Register(new CreateCeilingCommand());
+        Register(new CreateOpeningInWallCommand());
+        Register(new PlaceFamilyInstanceCommand());
+
+        // === Creation — documentation ===
+        Register(new CreateSheetCommand());
+        Register(new PlaceViewOnSheetCommand());
+        Register(new CreateFloorPlanViewCommand());
+        Register(new CreateSectionViewCommand());
+        Register(new Create3DViewCommand());
+        Register(new CreatePerspectiveViewCommand());
+        Register(new CreateScheduleCommand());
+        Register(new TagElementCommand());
+        Register(new TagAllInViewCommand());
+        Register(new CreateAlignedDimensionCommand());
+        Register(new CreateSpotElevationCommand());
+        Register(new CreateTextNoteCommand());
+        Register(new CreateDetailLineCommand());
+        Register(new CreateFilledRegionCommand());
+
+        // === Family management ===
+        Register(new LoadFamilyCommand());
+        Register(new DuplicateFamilyTypeCommand());
+
+        // === Annotation — query ===
+        Register(new GetTagsInViewCommand());
+
+        // === Edit — parameters ===
+        Register(new SetParameterCommand());
+        Register(new SetParameterBatchCommand());
+        Register(new UpdateWhereCommand());
+        Register(new ImportParametersCommand());
+        Register(new RenameElementCommand());
+        Register(new CopyParametersCommand());
+        Register(new ChangeElementTypeCommand());
+        Register(new ApplyViewTemplateCommand());
+        Register(new ConfigureScheduleCommand());
+        Register(new SetLevelElevationCommand());
+        Register(new ExportViewPdfCommand());
+
+        // === Edit — transform ===
+        Register(new MoveElementCommand());
+        Register(new RotateElementCommand());
+        Register(new CopyElementCommand());
+        Register(new MirrorElementCommand());
+        Register(new ArrayLinearCommand());
+        Register(new DeleteElementsCommand());
+
+        // === Edit — grouping ===
+        Register(new GroupElementsCommand());
+        Register(new UngroupElementsCommand());
+
+        // === View manipulation ===
+        Register(new OpenViewCommand());
+        Register(new SetViewDetailLevelCommand());
+        Register(new HideElementsInViewCommand());
+        Register(new UnhideElementsInViewCommand());
+        Register(new IsolateElementsInViewCommand());
+        Register(new DuplicateViewCommand());
+        Register(new SetSectionBoxCommand());
+        Register(new SelectElementsCommand());
+        Register(new ZoomToElementsCommand());
+        Register(new ApplyViewFilterCommand());
+        Register(new ColorOverrideByParamCommand());
+
+        Register(new OverrideElementGraphicsCommand());
+
+        // === Coordination / clash ===
+        Register(new CheckClearanceCommand());
+
+        // Specialised HTTP-only commands live in opt-in command packs, not here
+        // (see CommandPacks and samples/HelloPack).
+    }
+}

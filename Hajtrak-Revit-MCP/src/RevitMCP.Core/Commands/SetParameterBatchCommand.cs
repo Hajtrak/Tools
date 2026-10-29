@@ -1,0 +1,168 @@
+using System;
+using System.Text.Json.Nodes;
+using Autodesk.Revit.DB;
+
+namespace RevitMCPAddin.Commands;
+
+/// <summary>
+/// Set the same parameter on multiple elements in one call.
+///
+/// Params:
+///   - ids:            long[], required
+///   - parameterName:  string, required
+///   - value:          any, required (same coercion rules as set_parameter)
+///   - units:          "meters"|"feet"|"internal", optional, default "internal".
+///                     See set_parameter for full unit-conversion semantics.
+///   - atomic:         bool, optional, default false. When true, ANY per-element
+///                     failure throws — the dispatcher's transaction rolls back
+///                     and the whole call reports ok:false (all-or-nothing).
+///                     When false (best-effort), successful writes are kept and
+///                     the result carries partialFailure:true if any failed.
+/// </summary>
+public sealed class SetParameterBatchCommand : IRevitCommand, IVerifiableCommand
+{
+    public string Name => "set_parameter_batch";
+    public bool IsReadOnly => false;
+    public string RiskLevel => "medium";
+
+    public JsonNode? Execute(CommandContext ctx)
+    {
+        var doc = ctx.RequireDoc();
+        var p = ctx.Parameters;
+
+        var ids = P.Arr(p, "ids");
+        var paramName = P.StrOrNull(p, "parameterName") ?? "";
+        var valueNode = p["value"]
+            ?? throw new RevitCommandException("bad_request", "Missing required parameter 'value'.");
+        var atomic = P.BoolOr(p, "atomic", false);
+        var units = P.StrOrNull(p, "units") ?? "internal";
+
+        var succeeded = 0;
+        var failed = 0;
+        var errors = new JsonArray();
+        var okIds = new List<long>();
+
+        foreach (var idNode in ids)
+        {
+            if (idNode is null) throw new RevitCommandException("invalid_parameter", "ids must not contain null.");
+            var idValue = P.LongFrom(idNode, "ids[]");
+            try
+            {
+                using var itemTransaction = new SubTransaction(doc);
+                itemTransaction.Start();
+                var element = doc.GetElement(new ElementId(idValue))
+                    ?? throw new RevitCommandException("not_found", $"Element {idValue} not found.");
+
+                var param = ParameterAccess.Resolve(element, p);
+                ParameterAccess.Guard(param, valueNode, p);
+
+                if (param.IsReadOnly)
+                    throw new RevitCommandException("read_only_parameter", $"Parameter '{paramName}' is read-only.");
+
+                SetValue(param, valueNode, units);
+                doc.Regenerate();
+                var mismatch = ReadBack.ParameterMismatch(param, ReadBack.ExpectedFromJson(param, valueNode, units, "value"));
+                if (mismatch is not null) throw new RevitCommandException("verify_failed", mismatch);
+                itemTransaction.Commit();
+                succeeded++;
+                okIds.Add(idValue);
+            }
+            catch (RevitCommandException ex)
+            {
+                if (atomic)
+                    throw new RevitCommandException(ex.Code,
+                        $"Atomic batch aborted: element {idValue}: {ex.Message}");
+
+                failed++;
+                errors.Add(new JsonObject
+                {
+                    ["id"] = idValue,
+                    ["code"] = ex.Code,
+                    ["error"] = ex.Message,
+                });
+            }
+            catch (Exception ex)
+            {
+                // Atomic mode: abort immediately so the surrounding transaction
+                // rolls back and the call reports ok:false (all-or-nothing).
+                if (atomic)
+                    throw new RevitCommandException("command_failed",
+                        $"Atomic batch aborted: element {idValue}: {ex.Message}");
+
+                failed++;
+                errors.Add(new JsonObject
+                {
+                    ["id"] = idValue,
+                    ["error"] = ex.Message,
+                });
+            }
+        }
+
+        return new JsonObject
+        {
+            ["total"] = ids.Count,
+            ["atomic"] = atomic,
+            ["writtenIds"] = new JsonArray(okIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["affected"] = Affected.Modified(okIds),
+            ["succeeded"] = succeeded,
+            ["failed"] = failed,
+            ["partialFailure"] = failed > 0,
+            ["inputUnits"] = units,
+            ["errors"] = errors,
+            ["changeSummary"] = $"Set '{paramName}' on {succeeded}/{ids.Count} elements" +
+                                (failed > 0 ? $" ({failed} failed)" : ""),
+        };
+    }
+
+    /// <summary>Re-reads every element the batch reported as written (see <see cref="SetParameterCommand.Verify"/>).</summary>
+    public VerifyResult Verify(CommandContext ctx, JsonObject result)
+    {
+        var doc = ctx.RequireDoc();
+        var p = ctx.Parameters;
+        var units = P.StrOrNull(p, "units") ?? "internal";
+        var ids = Affected.Read(result["affected"]).Modified;
+        var mismatches = new List<string>();
+        foreach (var id in ids)
+        {
+            var element = doc.GetElement(new ElementId(id));
+            if (element is null) { mismatches.Add($"{id}: element missing after commit"); continue; }
+            var param = ParameterAccess.Resolve(element, p);
+            if (ReadBack.ParameterMismatch(param, ReadBack.ExpectedFromJson(param, p["value"]!, units, "value")) is string m)
+                mismatches.Add($"{id}: {m}");
+        }
+        return ReadBack.FromMismatches(mismatches, $"{ids.Length} element(s) re-read");
+    }
+
+    private static void SetValue(Parameter param, JsonNode valueNode, string units)
+    {
+        switch (param.StorageType)
+        {
+            case StorageType.String:
+                param.Set(P.StrFrom(valueNode, "value"));
+                break;
+            case StorageType.Integer:
+                if (valueNode.GetValueKind() is System.Text.Json.JsonValueKind.True
+                    or System.Text.Json.JsonValueKind.False)
+                    param.Set(P.BoolFrom(valueNode, "value") ? 1 : 0);
+                else
+                    param.Set(P.IntFrom(valueNode, "value"));
+                break;
+            case StorageType.Double:
+            {
+                var raw = P.DblFrom(valueNode, "value");
+                var converted = SetParameterCommand.ConvertToInternal(
+                    param, raw, units, out _);
+                param.Set(converted);
+                break;
+            }
+            case StorageType.ElementId:
+                var idVal = valueNode is JsonObject obj && obj["id"] is JsonNode idn
+                    ? P.LongFrom(idn, "value.id")
+                    : P.LongFrom(valueNode, "value");
+                param.Set(new ElementId(idVal));
+                break;
+            default:
+                throw new RevitCommandException("invalid_parameter", $"Unsupported storage type: {param.StorageType}");
+        }
+    }
+}

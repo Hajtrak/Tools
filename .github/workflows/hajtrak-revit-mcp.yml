@@ -1,0 +1,45 @@
+name: Hajtrak Revit MCP
+
+on:
+  push:
+    branches: [main]
+    paths: ['Hajtrak-Revit-MCP/**', '.github/workflows/hajtrak-revit-mcp.yml']
+  pull_request:
+    paths: ['Hajtrak-Revit-MCP/**', '.github/workflows/hajtrak-revit-mcp.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Hajtrak-Revit-MCP
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Hajtrak-Revit-MCP/src/McpServer/package-lock.json
+      - run: npm ci --prefix src/McpServer --ignore-scripts
+      - run: npm run build --prefix src/McpServer
+      - run: npm test --prefix src/McpServer
+      - run: node src/McpServer/scripts/check-tools.mjs
+      - run: node scripts/check-version.mjs
+      - run: node scripts/check-publication.mjs
+
+  addin:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Hajtrak-Revit-MCP
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet test src/RevitAddin.Tests/RevitMCPAddin.Tests.csproj -p:RevitVersion=2026 -p:DeployToRevit=false
+      - run: dotnet build samples/HelloPack/HelloPack.csproj -p:RevitVersion=2026 -p:DeployToRevit=false

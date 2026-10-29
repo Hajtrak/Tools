@@ -1,0 +1,6 @@
+<Project>
+  <!-- A development build must never silently replace the running connector. -->
+  <PropertyGroup>
+    <DeployToRevit Condition="'$(DeployToRevit)' == ''">false</DeployToRevit>
+  </PropertyGroup>
+</Project>
