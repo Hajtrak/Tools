@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 - 2026-10-29
+
+- Discover source IFC properties and quantities, including custom names and structured values.
+- Start with all fields available and no fixed column preset or grouping.
+- Add searchable property editing, custom fields, bulk edits and new-file IFC export.
+- Preserve shared type defaults, original files, element identifiers and geometry.
+- Show the application version beside the IFC Viewer name and in the window title.
+- Add IFC2X3/IFC4 round-trip and property-editor checks.
+
 ## 1.3.2 — 2026-10-27
 
 - Show/hide IFC storeys and gridlines independently.

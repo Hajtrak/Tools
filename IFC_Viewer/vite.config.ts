@@ -1,2 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
-export default defineConfig({ base: './', build: { target: 'es2022', chunkSizeWarningLimit: 3000 }, worker: { format: 'es' } });
+const version=JSON.parse(readFileSync(new URL('./package.json',import.meta.url),'utf8')).version;
+export default defineConfig({ define:{__APP_VERSION__:JSON.stringify(version)}, base: './', build: { target: 'es2022', chunkSizeWarningLimit: 3000 }, worker: { format: 'es' } });

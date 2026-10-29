@@ -6,14 +6,18 @@ import * as WEBIFC from 'web-ifc';
 import './style.css';
 import { createGridLabels } from './grid-labels';
 import { setBaseGridOnly } from './grid-visibility';
-import { readRows } from './material-data';
+import { IfcProperties } from './ifc-properties';
+import { propertyEditor } from './property-editor';
+import type {Row} from './material-data';
 import { materialUI } from './material-ui';
 import { DisplayState, displayDelta, type DisplayPlan, type DisplayAction } from './display-state';
-
+declare const __APP_VERSION__: string;
+document.getElementById('app-version')!.textContent='v'+__APP_VERSION__;
+document.title='IFC Viewer v'+__APP_VERSION__;
 type LocalFile = { name: string; size: number; bytes: Uint8Array };
 declare global {
   interface Window {
-    desktop: { saveExport(format:'csv'|'txt',text:string,name:string):Promise<string|null>; openFile(): Promise<LocalFile | null>; droppedFile(file: File): Promise<LocalFile>; testRead?: (path: string) => Promise<LocalFile> };
+    desktop: { saveIfc(bytes:Uint8Array,name:string):Promise<string|null>; saveExport(format:'csv'|'txt',text:string,name:string):Promise<string|null>; openFile(): Promise<LocalFile | null>; droppedFile(file: File): Promise<LocalFile>; testRead?: (path: string) => Promise<LocalFile> };
     viewerTest?: Record<string, unknown>;
   }
 }
@@ -43,6 +47,8 @@ let grids: THREE.Group | undefined;
 let gridLabels: ReturnType<typeof createGridLabels> | undefined;
 let levels: {name:string;ids:number[];input:HTMLInputElement}[] = [];
 const dataUI = materialUI(selectMembers, () => { world?.renderer?.resize(); }, showError, displayState, changeDisplay);
+let propertyData:IfcProperties|undefined;
+const editor=propertyEditor(()=>propertyData,dataUI,showError,()=>busy);
 dataUI.reset();
 async function updateDisplay(displayChanged=false) {
  displayDirty ||= displayChanged;
@@ -85,7 +91,6 @@ async function changeDisplay(action:DisplayAction){
  displayState.change(action);
  return updateDisplay(true);
 }
-
 function controlsEnabled() {
   openButton.disabled = busy;
   for (const b of viewButtons) b.disabled = busy || !model;
@@ -157,8 +162,8 @@ function loading(text: string, percent?: number) {
   if (percent === undefined) bar.removeAttribute('value'); else bar.value = percent;
 }
 function sizeLabel(n: number) { return n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`; }
-
 async function clearModel() {
+  propertyData?.close();propertyData=undefined;editor.reset();
   ++selectionToken;
   ++pickToken;
   await selectionWork.catch(()=>{});
@@ -182,7 +187,6 @@ async function clearModel() {
   $('empty').hidden = false;
   controlsEnabled();
 }
-
 async function orient(view?: string, smooth = true, fitBounds=bounds) {
   if (!model || bounds.isEmpty()) return;
   if (view) currentView = view;
@@ -207,14 +211,12 @@ async function orient(view?: string, smooth = true, fitBounds=bounds) {
   for (const b of viewButtons) b.classList.toggle('active', b.dataset.view === currentView);
   await fragments.core.update(true);
 }
-
 function validateIfc(bytes: Uint8Array) {
   const header = new TextDecoder().decode(bytes.subarray(0, Math.min(bytes.length, 16384)));
   const tail = new TextDecoder().decode(bytes.subarray(Math.max(0, bytes.length - 65536)));
   if (!/ISO-10303-21\s*;/i.test(header) || !/FILE_SCHEMA\s*\(/i.test(header)) throw new Error('This file is not a readable IFC STEP model. Choose an uncompressed .ifc file.');
   if (!/END-ISO-10303-21\s*;/i.test(tail)) throw new Error('This IFC file appears incomplete. Export or download the complete file and try again.');
 }
-
 async function openModel(file: LocalFile) {
   if (busy) return;
   busy = true;
@@ -268,11 +270,12 @@ async function openModel(file: LocalFile) {
     viewport.focus();
     loading('Reading member information…', 98);
     try {
-      const rows=await readRows(model,file.name,text=>{loading(text,98);dataUI.status(text);});
-      dataUI.setRows(rows,file.name);
+      const rows:Row[]=(await model.getItemsIdsWithGeometry()).map(id=>({id,values:{file:file.name},sources:{}}));
+      propertyData=await IfcProperties.open(bytes);
+      propertyData.discover(rows);
+      dataUI.setRows(rows,file.name);editor.loaded(file.name);
       await orient('iso',false);
     } catch(error){dataUI.status('Member information could not be read. '+errorMessage(error));}
-
   } catch (error) {
     // Leave a successfully loaded model visible if validation failed before replacement.
     if (fragments.list.size && !model) await clearModel();
@@ -284,7 +287,6 @@ async function openModel(file: LocalFile) {
     controlsEnabled();
   }
 }
-
 async function chooseFile() {
   if (busy||choosing) return;
   choosing=true;
@@ -292,7 +294,6 @@ async function chooseFile() {
   catch (error) { showError(error); }
   finally { choosing=false; }
 }
-
 async function init() {
   components = new OBC.Components();
   world = components.get(OBC.Worlds).create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();

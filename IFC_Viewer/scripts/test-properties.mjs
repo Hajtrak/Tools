@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import path from 'node:path';
+import {IfcProperties} from '../.cache/ifc-properties.js';
+const require=createRequire(import.meta.url),I=require('web-ifc');
+const api=new I.IfcAPI();await api.Init(name=>path.join(path.dirname(require.resolve('web-ifc')),name));
+for(const schema of ['IFC2X3','IFC4']){
+ const m=api.CreateModel({schema});
+ const t=(type,value)=>api.CreateIfcType(m,type,value),label=s=>t(I.IFCLABEL,s),guid=()=>api.CreateIFCGloballyUniqueId(m);
+ const make=(type,...args)=>{const obj=api.CreateIfcEntity(m,type,...args);api.WriteLine(m,obj);return new I.Handle(obj.expressID);};
+ const wall=name=>make(I.IFCWALL,guid(),null,label(name),null,null,null,null,null,...(schema==='IFC4'?[null]:[]));
+ const a=wall('A'),b=wall('B');
+ const property=make(I.IFCPROPERTYSINGLEVALUE,label('Custom Mass XYZ'),null,t(I.IFCMASSMEASURE,12.5),null);
+ const list=make(I.IFCPROPERTYLISTVALUE,label('Tags'),null,[label('one'),label('two')],null);
+ const set=make(I.IFCPROPERTYSET,guid(),null,label('Supplier'),null,[property,list]);
+ make(I.IFCRELDEFINESBYPROPERTIES,guid(),null,null,null,[a,b],set);
+ const typeProperty=make(I.IFCPROPERTYSINGLEVALUE,label('Type Notes'),null,label('Shared default'),null);const typeSet=make(I.IFCPROPERTYSET,guid(),null,label('TypeData'),null,[typeProperty]);const wallType=make(I.IFCWALLTYPE,guid(),null,label('Wall type'),null,null,[typeSet],null,null,null,{type:3,value:'NOTDEFINED'});make(I.IFCRELDEFINESBYTYPE,guid(),null,null,null,[a,b],wallType);
+ const point=make(I.IFCCARTESIANPOINT,[t(I.IFCLENGTHMEASURE,1),t(I.IFCLENGTHMEASURE,2),t(I.IFCLENGTHMEASURE,3)]);
+ const axis=make(I.IFCAXIS2PLACEMENT3D,point,null,null);
+ const direction=make(I.IFCDIRECTION,[t(I.IFCREAL,0),t(I.IFCREAL,0),t(I.IFCREAL,1)]);
+ const point2=make(I.IFCCARTESIANPOINT,[t(I.IFCLENGTHMEASURE,0),t(I.IFCLENGTHMEASURE,0)]);const axis2=make(I.IFCAXIS2PLACEMENT2D,point2,null);
+ const profile=make(I.IFCRECTANGLEPROFILEDEF,{type:3,value:'AREA'},null,axis2,t(I.IFCPOSITIVELENGTHMEASURE,2),t(I.IFCPOSITIVELENGTHMEASURE,1));
+ const solid=make(I.IFCEXTRUDEDAREASOLID,profile,axis,direction,t(I.IFCPOSITIVELENGTHMEASURE,3));
+ const context=make(I.IFCGEOMETRICREPRESENTATIONCONTEXT,null,label('Model'),3,t(I.IFCREAL,0.00001),axis,null);
+ const shape=make(I.IFCSHAPEREPRESENTATION,context,label('Body'),label('SweptSolid'),[solid]);
+ const representation=make(I.IFCPRODUCTDEFINITIONSHAPE,null,null,[shape]);
+ const placement=make(I.IFCLOCALPLACEMENT,null,axis);
+ const wallLine=api.GetLine(m,a.value);wallLine.ObjectPlacement=placement;wallLine.Representation=representation;api.WriteLine(m,wallLine);
+ const mesh=m=>{const flat=api.GetFlatMesh(m,a.value);assert(flat.geometries.size()>0);return Array.from({length:flat.geometries.size()},(_,i)=>{const placed=flat.geometries.get(i),g=api.GetGeometry(m,placed.geometryExpressID);const result={vertices:Array.from(api.GetVertexArray(g.GetVertexData(),g.GetVertexDataSize())),indices:Array.from(api.GetIndexArray(g.GetIndexData(),g.GetIndexDataSize()))};g.delete();return result;});};
+
+ const before=api.GetRawLineData(m,point.value);
+ const unit=make(I.IFCSIUNIT,{type:3,value:'LENGTHUNIT'},null,{type:3,value:'METRE'});const assignment=make(I.IFCUNITASSIGNMENT,[unit]);make(I.IFCPROJECT,guid(),null,label('Synthetic'),null,null,null,null,[context],assignment);
+ const beforeMesh=mesh(m);
+ const bytes=api.SaveModel(m),original=bytes.slice();const data=IfcProperties.fromAPI(api,m,bytes);
+ const rows=[{id:a.value,values:{file:'synthetic.ifc'},sources:{}},{id:b.value,values:{file:'synthetic.ifc'},sources:{}}];data.discover(rows);
+ assert.equal(rows[0].values['Supplier · Custom Mass XYZ'],12.5);
+ assert.equal(rows[0].values['Supplier · Tags · ListValues'],'["one","two"]');
+ assert(!data.writable([a.value],'IFC · GlobalId'));
+ assert.throws(()=>data.stage({ids:[a.value],key:'Supplier · Custom Mass XYZ',value:'bad'},rows));assert.equal(data.count,0);
+ data.stage({ids:[a.value],key:'Type · TypeData · Type Notes',value:'Instance override'},rows);
+ data.stage({ids:[a.value],key:'Supplier · Custom Mass XYZ',value:21},rows);
+ data.stage({ids:[a.value],set:'Supplier',name:'New Field',value:true},rows);
+ data.stage({ids:[a.value,b.value],set:'Pset_ViewerCustom',name:'Notes',value:'Žľť Unicode ✓'},rows);
+ data.stage({ids:[a.value],set:'Pset_ViewerCustom',name:'Work Group',value:'Team A'},rows);
+ data.stage({ids:[a.value],key:'Pset_ViewerCustom · Notes',value:'Updated'},rows);
+ const exported=data.export(),n=api.OpenModel(exported);
+ assert.deepEqual(mesh(n),beforeMesh);assert.deepEqual(bytes,original);assert.deepEqual(api.GetRawLineData(n,point.value),before);
+ assert.equal(api.GetLine(n,a.value).GlobalId.value,api.GetLine(m,a.value).GlobalId.value);
+ const reopened=IfcProperties.fromAPI(api,n,exported);const result=reopened.discover([{id:a.value,values:{},sources:{}},{id:b.value,values:{},sources:{}}]);
+ assert.equal(result[0].values['TypeData · Type Notes'],'Instance override');assert.equal(result[1].values['Type · TypeData · Type Notes'],'Shared default');assert.equal(result[0].values['Supplier · New Field'],true);
+ assert.equal(result[0].values['Supplier · Custom Mass XYZ'],21);assert.equal(result[1].values['Supplier · Custom Mass XYZ'],12.5);
+ assert.equal(result[0].values['Pset_ViewerCustom · Notes'],'Updated');assert.equal(result[1].values['Pset_ViewerCustom · Notes'],'Žľť Unicode ✓');
+ assert.equal(result[0].values['Pset_ViewerCustom · Work Group'],'Team A');
+ assert.equal(data.export().length,exported.length,'Repeated exports do not accumulate changes');
+ if(schema==='IFC4'){const {writeFileSync}=await import('node:fs');writeFileSync('.cache/synthetic.ifc',bytes);}
+ api.CloseModel(n);api.CloseModel(m);console.log(schema+' discovery, shared properties, bulk edits, Unicode, geometry record and identifier preservation passed');
+}
+api.Dispose();

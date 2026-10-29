@@ -1,25 +1,17 @@
-# IFC Viewer 1.3.2
+# IFC Viewer 1.4.0
 
-Offline Windows x64 IFC viewer with member information and material lists.
+- Discover custom IFC property and quantity names automatically; choose and reorder any available columns without a default grouping.
+- Edit scalar properties and simple quantities, add custom Comments, Notes and Work Group fields, and apply bulk edits.
+- Search the property selector by property or property-set name.
+- Save changes to a new IFC while preserving the original, element identifiers and geometry.
+- See v1.4.0 beside the app name and in the window title.
 
 ## Downloads
 
-- `IFC-Viewer-1.3.2-Setup.exe` — installs for your Windows user with desktop and Start menu shortcuts.
-- `IFC-Viewer-1.3.2-Windows-x64.zip` — extract fully, then run `IFC Viewer/IFC Viewer.exe`.
-- `SHA256SUMS.txt` — SHA-256 checksums.
-
-## New in 1.3.2
-
-- Show or hide IFC storeys and gridlines independently.
-- Show gridline names at both ends of each named axis; labels stay upright while rotating.
-- Base level only is enabled by default, hiding grid copies at upper elevations without hiding structural members. Clear it to show all grid elevations.
-- Orbit around the combined centre of selected members or material-list groups.
-- Zoom to selection with the toolbar button or Z. Fit model (F) still frames the whole model.
-
-Existing material lists, grouping, member colours, visibility controls and CSV/TXT exports remain available. All model processing stays local; source IFC files are unchanged.
+- IFC-Viewer-1.4.0-Setup.exe: Windows x64 installer.
+- IFC-Viewer-1.4.0-Windows-x64.zip: portable app; extract the entire folder.
+- SHA256SUMS.txt: download checksums.
 
 ## Validation and limits
 
-Material-data, display-state and new grid-visibility tests pass, along with TypeScript and production build checks. Grid tests cover multiple elevations within one grid, transformed placements, elevation tolerance, labels and visibility restoration. The portable app was rebuilt. Installer installation/uninstallation, large models and varied IFC exporters have not been reverified. Base means the lowest exported horizontal grid elevation, with 10 mm tolerance; it does not depend on storey names. Gridlines and names must be present in the IFC export.
-
-Builds are unsigned. No accounts, uploads, automatic updates or runtime internet connection. Quantities depend on exported IFC properties.
+Regression tests, TypeScript/build checks and synthetic IFC2X3/IFC4 round trips cover custom names, shared-property isolation, type overrides, bulk editing, Unicode, identifier and geometry preservation. Desktop editing/save integration and property search checks passed during development. Structured properties are visible but read-only; multi-set relationship editing, IFC4x3 and large production models remain unverified or unsupported. See docs/PROPERTY_EDITING.md for details. Installer installation/uninstallation has not been verified. Builds are unsigned.

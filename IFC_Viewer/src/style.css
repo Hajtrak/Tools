@@ -7,3 +7,7 @@ header{gap:16px}header .brand{margin-right:auto}header>button:not(.primary),#mat
 .movable-column,.movable-column button{touch-action:none;user-select:none;cursor:grab}.dragging-column{outline:2px solid #20766d;outline-offset:-2px;background:#dceee8}
 
 #visibility-controls{position:absolute;top:16px;left:16px;z-index:2;background:#ffffffed;border:1px solid #d3dfde;border-radius:8px;padding:10px 13px;font-size:12px;max-width:280px;max-height:45%;overflow:auto}#visibility-controls summary{cursor:pointer;font-weight:600}#visibility-controls label{display:flex;align-items:center;gap:7px;margin:9px 0}#visibility-controls strong{display:block;margin-top:12px}#visibility-controls input{accent-color:#20766d}#grid-note{color:#718087}#level-options{margin-top:8px}nav{max-width:calc(100% - 24px);flex-wrap:wrap;justify-content:center}
+
+#property-form{display:grid;gap:12px;max-width:560px}#property-form label{display:grid;gap:5px}#property-new{display:grid;gap:12px}#property-form textarea,#property-form select,#property-form input{font:inherit;width:100%;box-sizing:border-box}#property-error{color:#a22}#edit-count{font-size:12px}
+
+#app-version{font-size:12px;font-weight:500;opacity:.8;white-space:nowrap;margin-left:6px}

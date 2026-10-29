@@ -1,7 +1,7 @@
 {
   "name": "local-ifc-viewer",
   "productName": "IFC Viewer",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "private": true,
   "description": "Offline IFC viewer and material lists for Windows",
   "author": "IFC Viewer",
@@ -15,8 +15,9 @@
     "test:materials": "tsc src/material-data.ts --target es2022 --module es2022 --moduleResolution bundler --outDir .cache --skipLibCheck && node scripts/test-materials.mjs",
     "test:display": "tsc src/display-state.ts src/material-data.ts --target es2022 --module es2022 --moduleResolution bundler --outDir .cache --skipLibCheck && node scripts/test-display.mjs",
     "test:grids": "tsc src/grid-visibility.ts --target es2022 --module es2022 --moduleResolution bundler --outDir .cache --skipLibCheck && node scripts/test-grid-visibility.mjs",
-    "test": "npm run test:materials && npm run test:display && npm run test:grids",
-    "release": "npm run package && node scripts/distribute.mjs"
+    "test": "npm run test:materials && npm run test:display && npm run test:grids && npm run test:properties",
+    "release": "npm run package && node scripts/distribute.mjs",
+    "test:properties": "tsc src/ifc-properties.ts src/material-data.ts --target es2022 --module es2022 --moduleResolution bundler --outDir .cache --skipLibCheck && node scripts/test-properties.mjs"
   },
   "dependencies": {
     "@thatopen/components": "3.6.0",

@@ -45,6 +45,17 @@ app.whenReady().then(async () => {
     if (result.canceled || !result.filePaths[0]) return null;
     return readIfc(result.filePaths[0]);
   });
+  ipcMain.handle('ifc:save-copy', async (event, bytes, name) => {
+    trusted(event);
+    if (!(bytes instanceof Uint8Array) || bytes.length > 1024 * 1024 * 1024 || typeof name !== 'string') throw new Error('Invalid IFC export.');
+    const base = path.basename(name).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0,150);
+    const result = await dialog.showSaveDialog(win, {title:'Save edited IFC as a new file', defaultPath:base, filters:[{name:'IFC model',extensions:['ifc']}]});
+    if(result.canceled || !result.filePath) return null;
+    const target = /\.ifc$/i.test(result.filePath) ? result.filePath : result.filePath + '.ifc';
+    try { await fs.writeFile(target, bytes, {flag:'wx'}); }
+    catch(error) { if(error.code==='EEXIST') throw new Error('Choose a new filename. Existing files are preserved.'); throw error; }
+    return path.basename(target);
+  });
   ipcMain.handle('ifc:export', async (event, format, text, name) => {
     trusted(event);
     if (!['csv','txt'].includes(format) || typeof text !== 'string' || text.length > 100000000 || typeof name !== 'string') throw new Error('Invalid export request.');
