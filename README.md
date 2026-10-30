@@ -8,6 +8,7 @@ Tools for IFC models, material lists and Revit workflows.
 
 - [Overview and validation status](Hajtrak-Revit-MCP/README.md)
 - [Build, installation and rollback](Hajtrak-Revit-MCP/docs/BUILD_AND_INSTALL.md)
+- [Standalone installer for Revit 2026](Hajtrak-Revit-MCP/docs/STANDALONE_INSTALLER.md)
 - [Custom changes and acceptance matrix](Hajtrak-Revit-MCP/docs/CUSTOM_BUILD.md)
 - [Original project attribution and third-party notices](Hajtrak-Revit-MCP/THIRD_PARTY_NOTICES.md)
 

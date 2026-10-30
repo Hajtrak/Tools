@@ -1,3 +1,7 @@
+## Standalone packaging — 2026-10-30
+
+Added an offline Windows x64 setup executable for Revit 2026, with bundled Node and production bridge dependencies, optional Codex configuration, local backups and per-user uninstall/rollback. No original MCP installation is needed. Original MIT copyright and runtime notices are included. Installer policy tests and isolated real-payload fresh-install/migration checks supplement bridge discovery checks. Full live modelling acceptance remains pending.
+
 ## [0.9.0] — Custom development build, 2026-10-29
 
 All 94 upstream tools retained; four additions (batch inspection, host structural snapshot, operation status, ordinary save). Structural placement corrections, shared geometry and link transforms, parameter/type verification, document-bound writes, journaled operation recovery and dependency-event reporting. Updated MCP/validation/test dependencies. Development builds no longer deploy automatically. Live Revit acceptance and production cutover are pending. See docs/CUSTOM_BUILD.md for limits and compatibility changes.

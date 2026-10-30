@@ -39,7 +39,9 @@ Details for all 17 improved tools, compatibility changes and remaining limitatio
 
 ## Requirements
 
-The current development target is **Windows x64, Revit 2026, .NET 8 SDK and Node.js 22 or later**. Upstream multi-version source support is retained, but custom live validation for Revit 2025/2027 has not been established.
+For installation, use **Windows x64 and Revit 2026**. The [standalone installer](https://github.com/Hajtrak/Tools/releases) includes Node and all bridge dependencies; no original MCP installation is needed. See [installation and uninstall instructions](docs/STANDALONE_INSTALLER.md).
+
+Building from source requires **.NET 8 SDK and Node.js 22 or later**. Upstream multi-version source support is retained, but custom live validation for Revit 2025/2027 has not been established.
 
 A licensed Revit installation is required for real model operations. Autodesk binaries, models, personal settings, credentials and project evidence are not distributed here.
 

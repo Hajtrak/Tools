@@ -27,3 +27,14 @@ Dependencies are referenced through their package managers; their own licences a
 | TypeScript, Vitest and xUnit | Development/test dependencies; see each package's licence notices |
 
 Packaged runtime dependencies must retain their included licence files. The optional AutoAudit application is separate, is not included here, and has its own [upstream repository](https://github.com/KenLP/autoaudit-bim).
+
+## Standalone installer runtimes
+
+The standalone installer additionally redistributes the official Windows x64 Node.js runtime, production npm modules, Microsoft .NET runtime for its self-contained setup, and WebView2 SDK runtime files. Their original notices remain included:
+
+- `Node/LICENSE`: Node MIT licence and bundled third-party notices; `Node/provenance.json` records the official archive and SHA256. [Node source and licence](https://github.com/nodejs/node/blob/main/LICENSE).
+- `Licenses/microsoft.netcore.app.runtime.win-x64` and `Licenses/microsoft.windowsdesktop.app.runtime.win-x64`: Microsoft runtime licence and third-party notices. [.NET runtime](https://github.com/dotnet/runtime), [Windows Desktop](https://github.com/dotnet/windowsdesktop).
+- `Licenses/WebView2/LICENSE.txt` and `NOTICE.txt`: the SDK package's distribution terms and notices.
+- Production npm dependency directories retain their own licence files, including transitive dependencies.
+
+Autodesk Revit/API binaries, development SDKs, models and the separate AutoAudit service are not distributed in the installer.

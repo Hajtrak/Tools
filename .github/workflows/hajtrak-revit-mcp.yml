@@ -29,6 +29,7 @@ jobs:
       - run: npm test --prefix src/McpServer
       - run: node src/McpServer/scripts/check-tools.mjs
       - run: node scripts/check-version.mjs
+      - run: node --test installer/engine/install.test.mjs
       - run: node scripts/check-publication.mjs
 
   addin:
@@ -43,3 +44,4 @@ jobs:
           dotnet-version: '8.0.x'
       - run: dotnet test src/RevitAddin.Tests/RevitMCPAddin.Tests.csproj -p:RevitVersion=2026 -p:DeployToRevit=false
       - run: dotnet build samples/HelloPack/HelloPack.csproj -p:RevitVersion=2026 -p:DeployToRevit=false
+      - run: dotnet build installer/Setup/Hajtrak.RevitMCP.Setup.csproj -c Release

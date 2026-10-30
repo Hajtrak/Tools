@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>none</DebugType>
+    <Company>Hajtrak</Company>
+    <Product>Hajtrak Revit MCP Setup</Product>
+    <AssemblyName>Hajtrak-Revit-MCP-Setup</AssemblyName>
+    <Version>0.9.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PayloadZip Condition="'$(PayloadZip)' == ''">../payload.zip</PayloadZip>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(PayloadZip)')">
+    <EmbeddedResource Include="$(PayloadZip)" LogicalName="Hajtrak.RevitMCP.Payload.zip" />
+  </ItemGroup>
+</Project>
+

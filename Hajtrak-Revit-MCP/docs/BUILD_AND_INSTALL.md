@@ -2,6 +2,8 @@
 
 Run commands from the Hajtrak-Revit-MCP directory. Revit 2026 is the current custom development target.
 
+For a fresh computer, use the [standalone EXE installer](STANDALONE_INSTALLER.md). It includes Node and bridge dependencies and requires no original MCP installation. The source staging/migration helpers below remain available for development.
+
 ## Build
 
 Install .NET 8 SDK and Node.js 22 or later. Restore dependencies, then build without deploying:
@@ -38,7 +40,7 @@ The script creates a new versioned directory under release, refuses to overwrite
 
 ## Existing-connector replacement
 
-The current installer is a replacement/migration helper. It expects an existing revit-2026 entry in the user's Codex configuration and an existing RevitMCPAddin.addin manifest. A general clean-machine installer is not supplied in this development preview.
+`Install-CustomBuild.ps1` is the older replacement/migration helper. It expects an existing revit-2026 entry in the user's Codex configuration and an existing RevitMCPAddin.addin manifest. Use the standalone EXE for a clean installation.
 
 Close Revit and preview the replacement:
 
