@@ -2,7 +2,7 @@
 
 Run commands from the Hajtrak-Revit-MCP directory. Revit 2026 is the current custom development target.
 
-For a fresh computer, use the [standalone EXE installer](STANDALONE_INSTALLER.md). It includes Node and bridge dependencies and requires no original MCP installation. The source staging/migration helpers below remain available for development.
+Use the [Revit MCP Setup menu](MANAGED_SETUP.md) with a verified package. The [standalone EXE](STANDALONE_INSTALLER.md) remains available as a backup with its own bundled runtime and uninstall entry.
 
 ## Build
 
@@ -24,6 +24,7 @@ dotnet test src/RevitAddin.Tests/RevitMCPAddin.Tests.csproj -p:DeployToRevit=fal
 npm test --prefix src/McpServer
 node src/McpServer/scripts/check-tools.mjs
 node scripts/check-version.mjs
+node --test scripts/setup-core.test.mjs installer/engine/install.test.mjs
 ```
 
 The MCP discovery check does not modify a model. Live API acceptance must use a disposable local model copy.

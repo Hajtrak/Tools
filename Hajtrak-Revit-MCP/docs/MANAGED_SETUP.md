@@ -2,7 +2,7 @@
 
 Double-click **Setup-RevitMCP.cmd** to open the menu. It works from any current directory and requires Node.js 22 or newer.
 
-This setup supports **Revit 2026 with Codex on Windows** and manages a verified 0.9.0 package. In a source checkout, run the staging procedure in [Build and installation](BUILD_AND_INSTALL.md) first. If an EXE installation is present, use [Windows Installed apps](STANDALONE_INSTALLER.md).
+This setup supports **Revit 2026 with Codex on Windows** and manages a verified 0.9.0 package. In a source checkout, run the staging procedure in [Build and installation](BUILD_AND_INSTALL.md) first. The menu supports a clean install and can adopt the earlier custom PowerShell installation. If the standalone EXE is installed, uninstall it through [Windows Installed apps](STANDALONE_INSTALLER.md) before switching to the menu.
 
 | Option | Result |
 | --- | --- |
@@ -12,6 +12,8 @@ This setup supports **Revit 2026 with Codex on Windows** and manages a verified 
 | Repair | Recovers an interrupted operation and reinstalls the recorded package. Uses the staged package if the recorded package is unavailable or damaged. |
 | Roll back | Undoes the last setup operation while preserving unrelated Codex configuration. Refuses to overwrite independent changes to tracked files or Revit settings. |
 | Uninstall | Removes the registered add-in files and the Revit 2026 Codex tables. Retains recovery packages, user settings, logs, token and shared WebView2 files. Rollback can undo it. |
+
+The menu ships in the setup bundle and source tree. Downloading the standalone EXE gives you the backup installation method and its separate recovery record. To switch from the menu to the EXE, uninstall through the menu first. Both methods manage the same Revit add-in files.
 
 Close Revit before install, repair, rollback or uninstall. Keep Revit open for the connection test.
 
