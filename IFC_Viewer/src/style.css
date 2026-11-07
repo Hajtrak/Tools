@@ -11,3 +11,5 @@ header{gap:16px}header .brand{margin-right:auto}header>button:not(.primary),#mat
 #property-form{display:grid;gap:12px;max-width:560px}#property-form label{display:grid;gap:5px}#property-new{display:grid;gap:12px}#property-form textarea,#property-form select,#property-form input{font:inherit;width:100%;box-sizing:border-box}#property-error{color:#a22}#edit-count{font-size:12px}
 
 #app-version{font-size:12px;font-weight:500;opacity:.8;white-space:nowrap;margin-left:6px}
+
+.field-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

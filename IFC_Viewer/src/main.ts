@@ -111,8 +111,8 @@ function syncVisibilityControls(){
   level.input.checked=count<level.ids.length;level.input.indeterminate=count>0&&count<level.ids.length;
  }
 }
-async function prepareVisibility(target:FragmentsModel){
- const geometry=new Set(await target.getItemsIdsWithGeometry());
+async function prepareVisibility(target:FragmentsModel, geometryIds:number[]){
+ const geometry=new Set(geometryIds);
  const tree=await target.getSpatialStructure();
  const storeys: {id:number;ids:number[]}[]=[];
  function visit(node:typeof tree):number[]{
@@ -162,6 +162,9 @@ function loading(text: string, percent?: number) {
   if (percent === undefined) bar.removeAttribute('value'); else bar.value = percent;
 }
 function sizeLabel(n: number) { return n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`; }
+function requestRender() {
+  if (world.renderer) world.renderer.needsUpdate = true;
+}
 async function clearModel() {
   propertyData?.close();propertyData=undefined;editor.reset();
   ++selectionToken;
@@ -176,6 +179,7 @@ async function clearModel() {
   dataUI.reset();
   model = undefined;
   for (const id of [...fragments.list.keys()]) await fragments.core.disposeModel(id);
+  requestRender();
   // A replacement model must not inherit a previous IFC's georeferencing transform.
   fragments.baseCoordinationModel = '';
   fragments.baseCoordinationMatrix.identity();
@@ -237,6 +241,9 @@ async function openModel(file: LocalFile) {
       processData: { progressCallback: (progress: number) => loading(`Reading IFC… ${Math.round(progress * 100)}%`, Math.min(90, progress * 90)) },
     });
     model.useCamera(world.camera.three);
+    model.tiles.onItemSet.add(requestRender);
+    model.tiles.onItemDeleted.add(requestRender);
+    model.onViewUpdated.add(requestRender);
     model.graphicsQuality = 1;
     world.scene.three.add(model.object);
     // Import IFC in stable local coordinates, then centre the complete model.
@@ -254,14 +261,15 @@ async function openModel(file: LocalFile) {
     world.camera.controls.minDistance = Math.max(.001, radius / 10000);
     world.camera.controls.maxDistance = radius * 100;
     loading('Preparing view…', 95);
-    try { await prepareVisibility(model); } catch(error) {
+    const geometryIds = model.getItemsIdsWithGeometry();
+    try { await prepareVisibility(model, await geometryIds); } catch(error) {
       $('level-options').textContent='Level or gridline information could not be read.';
       console.warn('IFC visibility controls unavailable',error);
     }
     // Small steel details must remain full geometry rather than LOD lines.
     await model.setLodMode(LodMode.ALL_GEOMETRY);
     await orient('iso', false);
-    await fragments.core.update(true);
+    requestRender();
     $('empty').hidden = true;
     $('filename').textContent = file.name;
     $('file-meta').textContent = `${sizeLabel(file.size)} · ${((performance.now() - start) / 1000).toFixed(1)} s`;
@@ -270,7 +278,7 @@ async function openModel(file: LocalFile) {
     viewport.focus();
     loading('Reading member information…', 98);
     try {
-      const rows:Row[]=(await model.getItemsIdsWithGeometry()).map(id=>({id,values:{file:file.name},sources:{}}));
+      const rows:Row[]=(await geometryIds).map(id=>({id,values:{file:file.name},sources:{}}));
       propertyData=await IfcProperties.open(bytes);
       propertyData.discover(rows);
       dataUI.setRows(rows,file.name);editor.loaded(file.name);
@@ -303,6 +311,11 @@ async function init() {
   world.renderer = new OBC.SimpleRenderer(components, viewport, { antialias: true, alpha: false });
   world.renderer.showLogo = false;
   world.renderer.three.setPixelRatio(Math.min(devicePixelRatio, 2));
+  // Keep camera controls ticking, but draw only when the viewport changes.
+  world.renderer.mode = OBC.RendererMode.MANUAL;
+  world.renderer.onResize.add(requestRender);
+  world.renderer.three.domElement.addEventListener('webglcontextrestored', requestRender);
+  requestRender();
   world.camera = new OBC.OrthoPerspectiveCamera(components);
   components.init();
   const controls = world.camera.controls;
@@ -316,7 +329,10 @@ async function init() {
   await controls.setLookAt(10, 7, 10, 0, 0, 0, false);
   fragments = components.get(OBC.FragmentsManager);
   fragments.init(new URL('vendor/fragments-worker.mjs', document.baseURI).href);
-  controls.addEventListener('update', () => { void fragments.core.update(); });
+  controls.addEventListener('update', () => {
+    requestRender();
+    void fragments.core.update();
+  });
   controls.addEventListener('controlstart',()=>{if(!busy)setSelectionPivot();});
   fragments.core.models.materials.list.onItemSet.add(({ value: material }) => {
     if (!('isLodMaterial' in material && material.isLodMaterial)) {
@@ -349,9 +365,9 @@ async function init() {
   $('open').addEventListener('click', () => void chooseFile());
   $('fit').addEventListener('click', () => void orient());
   $('focus-selection').addEventListener('click',()=>{void focusSelection().catch(showError);});
-  $('gridlines').addEventListener('change',()=>{if(grids)grids.visible=$<HTMLInputElement>('gridlines').checked;});
-  $('grid-names').addEventListener('change',()=>{gridLabels?.setVisible($<HTMLInputElement>('grid-names').checked);});
-  $('base-grid-only').addEventListener('change',()=>{if(grids)setBaseGridOnly(grids,$<HTMLInputElement>('base-grid-only').checked);});
+  $('gridlines').addEventListener('change',()=>{if(grids)grids.visible=$<HTMLInputElement>('gridlines').checked;requestRender();});
+  $('grid-names').addEventListener('change',()=>{gridLabels?.setVisible($<HTMLInputElement>('grid-names').checked);requestRender();});
+  $('base-grid-only').addEventListener('change',()=>{if(grids)setBaseGridOnly(grids,$<HTMLInputElement>('base-grid-only').checked);requestRender();});
   $('dismiss').addEventListener('click', () => { $('error').hidden = true; });
   for (const b of viewButtons) if (b.dataset.view) b.addEventListener('click', () => void orient(b.dataset.view));
   document.addEventListener('keydown', e => {

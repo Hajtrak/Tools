@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 - 2026-11-07
+
+- Select or deselect all material list columns in one action, including columns hidden by search.
+- Redraw the viewport when the scene or camera changes and skip duplicate IFC reads during model opening.
+- Reuse number formatting and reduce table summary work.
+
 ## 1.4.0 - 2026-10-29
 
 - Discover source IFC properties and quantities, including custom names and structured values.

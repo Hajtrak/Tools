@@ -94,7 +94,8 @@ export function tableRows(rows:Row[],groups:string[],search:string,sort:string,d
  }
  return result.sort((a,b)=>{const x=a.values[sort],y=b.values[sort];if(x==null)return y==null?0:1;if(y==null)return -1;return (typeof x==='number'&&typeof y==='number'?x-y:naturalOrder.compare(String(x),String(y)))*(descending?-1:1);});
 }
-export const display=(v:Cell|undefined)=>v===undefined||v===''?'—':typeof v==='number'?Number(v.toFixed(3)).toLocaleString('en-GB',{maximumFractionDigits:3}):String(v);
+const displayNumber=new Intl.NumberFormat('en-GB',{maximumFractionDigits:3});
+export const display=(v:Cell|undefined)=>v===undefined||v===''?'-':typeof v==='number'?displayNumber.format(Number(v.toFixed(3))):String(v);
 export function exportText(rows:TableRow[],fields:string[],format:'csv'|'txt'){
  const safe=(v:Cell|undefined)=>{const s=v==null?'':String(v);return typeof v==='string'&&/^[\s]*[=+@-]/.test(s)?"'"+s:s;};
  const grid=[fields.map(k=>safe(labels[k]||k)),...rows.map(r=>fields.map(k=>safe(r.values[k])))];

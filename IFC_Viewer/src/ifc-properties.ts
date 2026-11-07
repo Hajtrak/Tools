@@ -23,7 +23,13 @@ export class IfcProperties {
  private each(type:number,fn:(line:any)=>void){const ids=this.api.GetLineIDsWithType(this.model,type,true);for(let i=0;i<ids.size();i++)fn(this.line(ids.get(i)));}
  discover(rows:Row[]){
   const known=new Set(rows.map(r=>r.id));
-  this.each(IFC.IFCELEMENT,element=>{if(!known.has(element.expressID)){rows.push({id:element.expressID,values:{quantity:1,file:rows[0]?.values.file||''},sources:{}});known.add(element.expressID);}});
+  const elements=this.api.GetLineIDsWithType(this.model,IFC.IFCELEMENT,true);
+  for(let i=0;i<elements.size();i++){
+   const id=elements.get(i);
+   if(known.has(id))continue;
+   rows.push({id,values:{quantity:1,file:rows[0]?.values.file||''},sources:{}});
+   known.add(id);
+  }
   for(const row of rows){row.values={quantity:1,file:row.values.file||''};row.sources={};}
   const fieldKeys=new Map<number,Set<string>>();
   const byId=new Map(rows.map(r=>[r.id,r]));this.bindings.clear();

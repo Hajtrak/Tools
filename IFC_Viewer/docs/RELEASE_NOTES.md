@@ -1,17 +1,14 @@
-# IFC Viewer 1.4.0
+# IFC Viewer 1.4.1
 
-- Discover custom IFC property and quantity names automatically; choose and reorder any available columns without a default grouping.
-- Edit scalar properties and simple quantities, add custom Comments, Notes and Work Group fields, and apply bulk edits.
-- Search the property selector by property or property-set name.
-- Save changes to a new IFC while preserving the original, element identifiers and geometry.
-- See v1.4.0 beside the app name and in the window title.
+- Use Select all and Deselect all in Material list > Columns. The buttons apply to the full column list while search is active. Quantity and active grouping columns always appear.
+- The viewport redraws when the camera or scene changes. IFC opening skips duplicate geometry and element reads, and material list rendering reuses number formatting.
 
 ## Downloads
 
-- IFC-Viewer-1.4.0-Setup.exe: Windows x64 installer.
-- IFC-Viewer-1.4.0-Windows-x64.zip: portable app; extract the entire folder.
-- SHA256SUMS.txt: download checksums.
+- `IFC-Viewer-1.4.1-Setup.exe` is the Windows x64 installer.
+- `IFC-Viewer-1.4.1-Windows-x64.zip` contains the portable app. Extract the entire folder before opening it.
+- `SHA256SUMS.txt` provides download checksums.
 
-## Validation and limits
+## Validation
 
-Regression tests, TypeScript/build checks and synthetic IFC2X3/IFC4 round trips cover custom names, shared-property isolation, type overrides, bulk editing, Unicode, identifier and geometry preservation. Desktop editing/save integration and property search checks passed during development. Structured properties are visible but read-only; multi-set relationship editing, IFC4x3 and large production models remain unverified or unsupported. See docs/PROPERTY_EDITING.md for details. Installer installation/uninstallation has not been verified. Builds are unsigned.
+The build and regression suite passed, and the column controls were confirmed in the desktop app. Large production models have yet to be benchmarked. Builds are unsigned.

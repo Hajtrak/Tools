@@ -1,14 +1,14 @@
-# IFC Viewer 1.2.1
+# IFC Viewer 1.4.1
 
 A local Windows x64 IFC viewer. No login, subscription, uploads or internet connection required.
 
 ## Start
 
-Download [IFC Viewer 1.2.1 from GitHub Releases](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.2.1).
+Download [IFC Viewer 1.4.1 from GitHub Releases](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.4.1).
 
-**Installer:** run `IFC-Viewer-1.2.1-Setup.exe`. It installs for your Windows user and adds desktop and Start menu shortcuts. Open using either shortcut. Uninstall through Windows Settings → Apps. No administrator rights required.
+**Installer:** run `IFC-Viewer-1.4.1-Setup.exe`. It installs for your Windows user and adds desktop and Start menu shortcuts. Open using either shortcut. Uninstall through Windows Settings → Apps. No administrator rights required.
 
-**Portable ZIP:** extract `IFC-Viewer-1.2.1-Windows-x64.zip` fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together. Move the entire folder if needed.
+**Portable ZIP:** extract `IFC-Viewer-1.4.1-Windows-x64.zip` fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together. Move the entire folder if needed.
 
 Unsigned builds may show a Windows publisher warning. No automatic updates or IFC file-association changes. To update, run the newer installer or extract a newer ZIP into a separate folder.
 ## Controls
@@ -45,7 +45,7 @@ Standard length prefers the exported Length quantity, then NetLength, Cut Length
 
 The list opens below the model after loading. Use Material list to hide/show it, or drag its top divider to resize it.
 
-- Columns: tick the fields to include. Quantity always appears.
+- Columns: tick individual fields or use Select all and Deselect all. Both buttons apply to the full list, including fields hidden by search. Quantity and active grouping columns always appear.
 - Click a column heading to sort; click again to reverse the order.
 - Search: filter members using any of their available fields.
 - Group by: tick one or more fields, such as section, works and description. Untick all to return to individual members. Grouping fields are included automatically in the list and export.

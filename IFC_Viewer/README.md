@@ -1,13 +1,13 @@
 # IFC Viewer
 
-Version **1.3.2** — offline Windows x64 IFC viewer. No login, uploads, subscription or runtime internet connection.
+Version **1.4.1** — offline Windows x64 IFC viewer. No login, uploads, subscription or runtime internet connection.
 
 ## Download and run
 
-Download **[IFC Viewer 1.3.2](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.3.2)** from GitHub Releases.
+Download **[IFC Viewer 1.4.1](https://github.com/Hajtrak/Tools/releases/tag/ifc-viewer-v1.4.1)** from GitHub Releases.
 
-- **Installer:** `IFC-Viewer-1.3.2-Setup.exe`. Installs for your Windows user with desktop and Start menu shortcuts, without administrator rights. Uninstall through Windows Settings.
-- **Portable ZIP:** `IFC-Viewer-1.3.2-Windows-x64.zip`. Extract fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together.
+- **Installer:** `IFC-Viewer-1.4.1-Setup.exe`. Installs for your Windows user with desktop and Start menu shortcuts, without administrator rights. Uninstall through Windows Settings.
+- **Portable ZIP:** `IFC-Viewer-1.4.1-Windows-x64.zip`. Extract fully, then open `IFC Viewer/IFC Viewer.exe`. Keep all files together.
 - `SHA256SUMS.txt` provides download checksums.
 
 Builds are unsigned; Windows may display an unrecognised-publisher warning. IFC file associations are unchanged. Both versions contain the same offline viewer.
@@ -16,7 +16,7 @@ Builds are unsigned; Windows may display an unrecognised-publisher warning. IFC 
 
 - Open/drop IFC files; rotate, pan, pointer-centred zoom, fit and preset views.
 - Click members for configurable properties, exported lengths/weights and custom fields.
-- Search, sort and group material lists; reorder columns; export TXT or CSV.
+- Search, sort and group material lists. Select, deselect or reorder columns, then export TXT or CSV.
 - Colour members individually/by group; hide/show members or groups.
 - Show/hide storeys and gridlines; display grid names and filter to the base elevation.
 - Orbit around selected members/groups and zoom to selection (Z).
@@ -40,6 +40,6 @@ Optional geometry inspection: `npm run test:parser -- "path/to/model.ifc"`. Auto
 
 ## Limits and data handling
 
-One uncompressed IFC STEP file at a time. The 1 GB input guard is not a tested capacity claim. Large models and different exporters remain unverified. No measurements, editing or geometry-derived quantities. Missing quantities stay blank; supported units are converted when recognized. Hiding affects the view while exports/totals retain hidden members. Colours/visibility reset on replacement; field choices and column order are saved locally. No model contents are saved by those preferences.
+One uncompressed IFC STEP file at a time. The 1 GB input guard is not a tested capacity claim. Large models and different exporters remain unverified. Property editing can save changes to a new IFC. Measurement and geometry-derived quantities are unavailable. Missing quantities stay blank; supported units are converted when recognized. Hiding affects the view while exports/totals retain hidden members. Colours/visibility reset on replacement; field choices and column order are saved locally. No model contents are saved by those preferences.
 
 [MIT licence](../LICENSE). Bundled components retain their own licences and notices.

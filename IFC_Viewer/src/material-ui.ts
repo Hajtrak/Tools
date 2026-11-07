@@ -1,5 +1,5 @@
 import {palette,orderedFields,moveField, type DisplayState,type DisplayAction} from './display-state';
-import {labels,defaults,display,tableRows,exportText,type Row,type TableRow} from './material-data';
+import {labels,display,tableRows,exportText,type Row,type TableRow} from './material-data';
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const button=(text:string,action:()=>void)=>{const b=document.createElement('button');b.textContent=text;b.onclick=action;return b;};
 export function materialUI(select:(ids:number[])=>Promise<void>,resize:()=>void,onError:(e:unknown)=>void,view:DisplayState,changeDisplay:(action:DisplayAction)=>Promise<void>){
@@ -90,10 +90,8 @@ export function materialUI(select:(ids:number[])=>Promise<void>,resize:()=>void,
   }
   $('row-count').textContent=`· ${current.length} ${groups.length?'groups':'members'}`;
   $('group-summary').textContent=groups.length?'Grouped by '+groups.map(label).join(' / ')+'. Different values are shown as (varies).':'';
-  const matchingIds=new Set(current.flatMap(c=>c.ids));
-  const matching=rows.filter(r=>matchingIds.has(r.id));
-  const total=(key:string)=>{const present=matching.filter(r=>typeof r.values[key]==='number');const sum=present.reduce((n,r)=>n+(r.values[key] as number),0);return `${display(sum)} ${key==='length'?'m':'kg'} (${present.length}/${matching.length} with values)`;};
-  $('list-summary').textContent=rows.length?`${matching.length} elements. Export includes all matching rows. Raw property values retain IFC units.`:'No member information loaded.';
+  const matchingCount=current.reduce((count,row)=>count+row.ids.length,0);
+  $('list-summary').textContent=rows.length?`${matchingCount} elements. Export includes all matching rows. Raw property values retain IFC units.`:'No member information loaded.';
   $('display-summary').textContent=`${view.hidden.size} hidden · ${view.colours.size} coloured. Hidden members stay in the list and exports.`;
   $<HTMLButtonElement>('colour-groups').disabled=!groups.length||!current.length;
   $<HTMLButtonElement>('reset-colours').disabled=!view.colours.size;
@@ -102,17 +100,44 @@ export function materialUI(select:(ids:number[])=>Promise<void>,resize:()=>void,
   for(const key of ['export-csv','export-txt'])$<HTMLButtonElement>(key).disabled=!rows.length;
  }
  let mode:'member'|'columns'|'groups'='member';
+ const selectAllColumns=$<HTMLButtonElement>('select-all-columns');
+ const deselectAllColumns=$<HTMLButtonElement>('deselect-all-columns');
+ function syncColumnButtons(chosen:Set<string>){
+  selectAllColumns.disabled=fields.every(key=>chosen.has(key));
+  deselectAllColumns.disabled=chosen.size===0;
+ }
+ function setAllColumns(selectAll:boolean){
+  columns=selectAll?[...new Set([...columns,...fields])]:[];
+  persist();
+  options();
+  render();
+  renderOrder();
+ }
+ selectAllColumns.onclick=()=>setAllColumns(true);
+ deselectAllColumns.onclick=()=>setAllColumns(false);
  function options(){
   const chosen=mode==='member'?memberFields:mode==='columns'?columns:groups;
+  const checked=new Set(chosen),modelFields=new Set(fields);
+  $('column-bulk').hidden=mode!=='columns';
+  if(mode==='columns')syncColumnButtons(checked);
   const host=$('field-options');host.replaceChildren();const search=$<HTMLInputElement>('field-search').value.toLowerCase();
   const available=[...new Set([...fields,...chosen])];
   for(const key of available.filter(k=>label(k).toLowerCase().includes(search))){
-   const el=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=chosen.includes(key);
-   input.onchange=()=>{const index=chosen.indexOf(key);if(input.checked&&index<0)chosen.push(key);else if(index>=0)chosen.splice(index,1);persist();member();render();renderOrder();};
-   const text=document.createElement('span');text.textContent=label(key)+(fields.includes(key)||key in labels?'':' (not in this model)');el.append(input,text);host.append(el);
+   const el=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=checked.has(key);
+   input.onchange=()=>{
+    const index=chosen.indexOf(key);
+    if(input.checked&&index<0){chosen.push(key);checked.add(key);}
+    else if(!input.checked&&index>=0){chosen.splice(index,1);checked.delete(key);}
+    persist();
+    if(mode==='columns')syncColumnButtons(checked);
+    if(mode==='member')member();
+    else render();
+    renderOrder();
+   };
+   const text=document.createElement('span');text.textContent=label(key)+(modelFields.has(key)||key in labels?'':' (not in this model)');el.append(input,text);host.append(el);
   }
  }
- function choose(m:typeof mode){mode=m;$('fields-title').textContent=m==='member'?'Member information fields':m==='columns'?'Material list columns':'Group material list';$('fields-note').textContent=m==='groups'?'Select one or more fields. Clear all to see individual members. Values are grouped exactly; different lengths stay separate.':'Standard fields appear first, followed by all exported IFC properties. Raw property values retain the source IFC units.';$<HTMLInputElement>('field-search').value='';options();renderOrder();$<HTMLDialogElement>('fields-dialog').showModal();}
+ function choose(m:typeof mode){mode=m;$('fields-title').textContent=m==='member'?'Member information fields':m==='columns'?'Material list columns':'Group material list';$('fields-note').textContent=m==='columns'?'Bulk actions include columns hidden by search. Quantity and grouping columns always appear in the list.':m==='groups'?'Select one or more fields. Clear all to see individual members. Values are grouped exactly; different lengths stay separate.':'Standard fields appear first, followed by all exported IFC properties. Raw property values retain the source IFC units.';$<HTMLInputElement>('field-search').value='';options();renderOrder();$<HTMLDialogElement>('fields-dialog').showModal();}
  $('member-fields').onclick=()=>choose('member');$('list-fields').onclick=()=>choose('columns');$('group-fields').onclick=()=>choose('groups');$('field-search').oninput=options;$('fields-close').onclick=()=>$<HTMLDialogElement>('fields-dialog').close();
  $('close-member').onclick=()=>void select([]).catch(onError);
  $('select-matching').onclick=()=>void select(current.flatMap(r=>r.ids)).catch(onError);
