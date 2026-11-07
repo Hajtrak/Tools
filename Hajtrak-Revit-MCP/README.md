@@ -41,7 +41,7 @@ Details for all 17 improved tools, compatibility changes and remaining limitatio
 
 For **Windows x64, Revit 2026 and Codex**, use [Revit MCP Setup](docs/MANAGED_SETUP.md) as the default. Open Setup-RevitMCP.cmd from a setup bundle or a source checkout with a staged package. The menu requires Node.js 22 or newer and handles installation, updates, connection testing, repair, rollback and uninstall.
 
-For a backup installation method, use the standalone EXE. Its download and verification steps are in [Standalone installer](docs/STANDALONE_INSTALLER.md).
+For a backup installation method, use the standalone EXE. Its build and verification steps are in [Standalone installer](docs/STANDALONE_INSTALLER.md).
 
 Building from source requires **.NET 8 SDK and Node.js 22 or later**. Upstream multi-version source support is retained, but custom live validation for Revit 2025/2027 has not been established.
 

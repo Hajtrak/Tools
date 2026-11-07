@@ -2,7 +2,7 @@
 
 [Revit MCP Setup](MANAGED_SETUP.md) is the default for new installations and updates. Keep the standalone EXE as a backup for machines that need its bundled runtime or already use Windows Installed apps.
 
-Download `Hajtrak-Revit-MCP-0.9.0-Revit2026-Windows-x64-Setup.exe` and its SHA256 file from [GitHub Releases](https://github.com/Hajtrak/Tools/releases). This is an unsigned development preview; full live modelling acceptance remains pending.
+Use a retained copy of the backup EXE and its SHA256 file or follow the build steps below. The public [GitHub Releases](https://github.com/Hajtrak/Tools/releases) download is the unified setup bundle. The backup EXE is an unsigned development preview.
 
 ## Install on another computer
 
