@@ -43,6 +43,20 @@ Before diving into specific symptoms, verify:
 
 ---
 
+### Codex reports 401 in one conversation
+
+`/health` is public on loopback. Use `revit_ping` to verify authentication and compare its `bridgeInstanceId` with the bridge startup log. The bridge checks the protected `/stats` endpoint on startup, independently of the active model.
+
+If an older conversation returns 401 while a fresh conversation successfully calls both `revit_ping` and `revit_get_document_info`, continue in the fresh conversation. An older conversation can still dispatch through a prior MCP connection after a package update. Reinstalling the add-in cannot refresh a conversation's connection.
+
+### Two models open
+
+Revit commands use the model active when their Revit-thread work begins. Switch between the two models and call `revit_get_document_info` after each switch. Check that the title and document key follow the active model and that switching back returns its original key. Use that key as `expectedDocumentKey` on subsequent document-info calls and model writes that depend on the selected model. A mismatched key stops the command before it runs.
+
+Opening two models inside one Revit process does not start a second listener. If a second Revit process tries to bind the same port, the first process retains its published token.
+
+---
+
 ## "No active document"
 
 **Symptom:** Commands that need a model return `This command requires an active Revit document`.

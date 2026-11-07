@@ -253,11 +253,20 @@ Data: `id`, `levelName`, `wallTypeName`, `lengthFeet`, `heightFeet`.
 
 ### `create_floor`
 Params:
-- `profile` *(array of ≥3 {x,y,z?}, required)* — z is ignored, points are
-  flattened to the level elevation.
+- `profile` *(array of ≥3 {x,y,z?}, required)* — world coordinates in `units`.
+  Explicit Z is preserved, including zero. Supply Z on every point or omit it
+  on all points to use the reference level. Horizontal and single-plane sloping
+  profiles are supported. Nonplanar profiles fail; split multi-slope ramps into
+  separate segments. There is no flattened fallback.
 - `levelName`, `floorTypeName`, `units` — same conventions as above.
+- `structural` *(bool, optional, default false)* — structural floor flag;
+  modelled supports are not required for either setting.
 
-Data: `id`, `levelName`, `floorTypeName`, `pointCount`.
+Data: `id`, `levelName`, `floorTypeName`, `pointCount`, `structural`,
+`slopeRisePerRun`, `heightOffsetFeet`, `topPlaneVerified`. Native top faces must
+match the requested plane after regeneration or creation rolls back. Live
+acceptance remains required before deployment, including positive/negative and
+rotated slopes, elevated landings, thickness/type variants and rollback cases.
 
 ### `create_level`
 Params:

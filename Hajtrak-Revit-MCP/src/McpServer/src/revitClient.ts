@@ -9,6 +9,7 @@
  */
 
 import { readFileSync } from "fs";
+import { homedir } from "node:os";
 import { join } from "path";
 import { randomUUID } from "node:crypto";
 import { traceHeaders } from "./trace.js";
@@ -34,6 +35,7 @@ const DEFAULT_PORT = 7891 + (parseInt(REVIT_VERSION, 10) - 2026);
 const REVIT_PORT = Number(process.env.REVIT_MCP_PORT ?? String(DEFAULT_PORT));
 const BASE = `http://${REVIT_HOST}:${REVIT_PORT}`;
 const TIMEOUT_MS = Number(process.env.REVIT_MCP_TIMEOUT_MS ?? "30000");
+export const BRIDGE_INSTANCE_ID = randomUUID();
 
 export interface RevitEnvelope {
   ok: boolean;
@@ -51,6 +53,7 @@ export interface RevitEnvelope {
   results?: unknown;
   operationId?: string;
   outcome?: string;
+  bridgeInstanceId?: string;
 }
 
 export interface BatchStep {
@@ -68,20 +71,21 @@ function resolveAuthToken(): string | undefined {
 
 /** Read the token from the well-known per-session file written by the addin. */
 function readTokenFile(): string | undefined {
-  try {
-    const appData = process.env.APPDATA ?? "";
-    const tokenPath = join(
-      appData,
-      "Autodesk",
-      "Revit",
-      "Addins",
-      REVIT_VERSION,
-      "revit-mcp-token.txt",
-    );
-    return readFileSync(tokenPath, "utf-8").trim() || undefined;
-  } catch {
-    return undefined;
+  const roamingFolders = new Set([process.env.APPDATA]);
+  if (process.platform === "win32") {
+    roamingFolders.add(join(homedir(), "AppData", "Roaming"));
   }
+  for (const folder of roamingFolders) {
+    if (!folder) continue;
+    const tokenPath = join(folder, "Autodesk", "Revit", "Addins", REVIT_VERSION, "revit-mcp-token.txt");
+    try {
+      const token = readFileSync(tokenPath, "utf-8").trim();
+      if (token) return token;
+    } catch {
+      // The launcher may omit APPDATA, or Revit may still be starting.
+    }
+  }
+  return undefined;
 }
 
 // Mutable — refreshed automatically on 401 (Revit regenerates token on restart).
@@ -101,18 +105,19 @@ export function buildHeaders(): Record<string, string> {
   return headers;
 }
 
-async function postJson(
+async function requestJson(
   path: string,
-  body: unknown,
+  body: Record<string, unknown> | undefined,
   _retried = false,
+  timeoutMs = TIMEOUT_MS,
 ): Promise<RevitEnvelope> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const headers = { ...buildHeaders(), ...traceHeaders() };
     headers["x-request-id"] = randomUUID();
     const res = await fetch(`${BASE}${path}`, {
-      method: "POST",
+      method: body === undefined ? "GET" : "POST",
       headers,
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -124,7 +129,7 @@ async function postJson(
     } catch {
       return {
         ok: false,
-        operationId: (body as { operationId?: string }).operationId,
+        operationId: body?.operationId as string | undefined,
         outcome: "unknown",
         error: {
           code: "bad_response",
@@ -137,9 +142,9 @@ async function postJson(
     // on restart and env-var tokens might be stale.
     if (!_retried && envelope.error?.code === "unauthorized") {
       const fresh = readTokenFile();
-      if (fresh && fresh !== _authToken) {
+      if (fresh && `Bearer ${fresh}` !== headers["authorization"]) {
         _authToken = fresh;
-        return postJson(path, body, true);
+        return requestJson(path, body, true, timeoutMs);
       }
     }
 
@@ -149,7 +154,7 @@ async function postJson(
     const message = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      operationId: (body as { operationId?: string }).operationId,
+      operationId: body?.operationId as string | undefined,
       outcome: "unknown",
       error: {
         code: name === "AbortError" ? "timeout" : "transport_error",
@@ -174,7 +179,7 @@ export function callRevit(
   if (dryRun) body.dryRun = true;
   if (approvalToken) body.approvalToken = approvalToken;
   if (operationId) body.operationId = operationId;
-  return postJson("/mcp", body);
+  return requestJson("/mcp", body);
 }
 
 export function callRevitBatch(
@@ -188,12 +193,20 @@ export function callRevitBatch(
   if (dryRun) body.dryRun = true;
   if (approvalToken) body.approvalToken = approvalToken;
   if (operationId) body.operationId = operationId;
-  return postJson("/mcp/batch", body);
+  return requestJson("/mcp/batch", body);
+}
+
+/** Check authentication on the HTTP thread, independently of Revit's active model. */
+export function checkRevitAuthentication(): Promise<RevitEnvelope> {
+  return requestJson("/stats", undefined, false, 5000);
 }
 
 /** Common helper to convert a Revit envelope into the MCP tool result shape. */
 export function envelopeToToolResult(envelope: RevitEnvelope) {
-  const text = JSON.stringify(envelope, null, 2);
+  const result = envelope.error?.code === "unauthorized"
+    ? { ...envelope, bridgeInstanceId: BRIDGE_INSTANCE_ID }
+    : envelope;
+  const text = JSON.stringify(result, null, 2);
   return {
     content: [{ type: "text" as const, text }],
     isError: !envelope.ok,

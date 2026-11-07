@@ -79,10 +79,11 @@ public sealed class App : IExternalApplication
             _handler.AttachExternalEvent(_externalEvent);
 
             var port = ResolvePort(revitVersion);
-            var authToken = ResolveAuthToken(revitVersion);
+            var authToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
             _httpServer = new McpHttpServer(port, _handler, authToken, _audit);
             _httpServer.Start();
+            PublishAuthToken(revitVersion, authToken);
 
             // Log the actual build so the Revit journal / DebugView shows which dll
             // was loaded — the fastest way to spot a stale dll shadowing a newer one
@@ -125,6 +126,7 @@ public sealed class App : IExternalApplication
         }
         catch (Exception ex)
         {
+            _httpServer?.Stop();
             TaskDialog.Show("Hajtrak Revit MCP",
                 "Failed to start MCP HTTP server:\n\n" + ex);
             return Result.Failed;
@@ -291,35 +293,28 @@ public sealed class App : IExternalApplication
     }
 
     /// <summary>
-    /// Generates a random auth token and writes it to the addins folder.
-    /// Always returns a token — auth cannot be disabled (the REVIT_MCP_AUTH=false
-    /// escape hatch was removed in 0.8.17: the listener is loopback-only, but an
-    /// unauthenticated loopback port would still let any local process drive Revit).
+    /// Publishes the token only after the listener has claimed the port.
+    /// A second Revit process that fails to bind must leave the live token alone.
     /// </summary>
-    private static string ResolveAuthToken(string revitVersion)
+    private static void PublishAuthToken(string revitVersion, string token)
     {
-        // Generate a cryptographically secure random token.
-        var bytes = new byte[32];
-        using (var rng = RandomNumberGenerator.Create())
-            rng.GetBytes(bytes);
-        var token = Convert.ToBase64String(bytes);
+        var addinsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Autodesk", "Revit", "Addins", revitVersion);
+        Directory.CreateDirectory(addinsDir);
+        var tokenPath = Path.Combine(addinsDir, "revit-mcp-token.txt");
+        var temporaryPath = Path.Combine(addinsDir, $"revit-mcp-token-{Guid.NewGuid():N}.tmp");
 
-        // Write to a well-known location so the MCP server can read it.
         try
         {
-            var addinsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Autodesk", "Revit", "Addins", revitVersion);
-            var tokenPath = Path.Combine(addinsDir, "revit-mcp-token.txt");
-            File.WriteAllText(tokenPath, token);
-            LogToConsole($"[RevitMCP] Auth token written to {tokenPath}");
+            File.WriteAllText(temporaryPath, token);
+            File.Move(temporaryPath, tokenPath, overwrite: true);
         }
-        catch (Exception ex)
+        finally
         {
-            LogToConsole($"[RevitMCP] Warning: could not write auth token file: {ex.Message}");
+            try { File.Delete(temporaryPath); } catch { }
         }
-
-        return token;
+        LogToConsole($"[RevitMCP] Auth token written to {tokenPath}");
     }
 
     private static void LogToConsole(string message)

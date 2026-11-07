@@ -1,3 +1,13 @@
+## Unreleased
+
+Added a Windows setup menu for Revit 2026 and Codex with install/update, connection testing, repair, rollback and uninstall. Changes to unrelated Codex entries survive recovery. The setup menu checks for standalone EXE ownership before making changes.
+
+The bridge verifies authentication at startup and includes a bridge instance ID in ping and authentication errors. A Revit process publishes its token after binding the listener so a second process that fails to bind cannot replace the active token. Document info accepts an expected document key for safe checks when switching models.
+
+### Floor elevation preservation
+
+Floor creation preserves explicit world Z and single-plane slopes through a native slope arrow and level offset. Added an optional structural flag without requiring modelled supports. Mixed/missing elevations and nonplanar profiles fail explicitly; native top-face mismatch rolls back instead of returning a flattened floor. Existing installed packages are unchanged; live Revit acceptance is pending.
+
 ## Standalone packaging — 2026-10-30
 
 Added an offline Windows x64 setup executable for Revit 2026, with bundled Node and production bridge dependencies, optional Codex configuration, local backups and per-user uninstall/rollback. No original MCP installation is needed. Original MIT copyright and runtime notices are included. Installer policy tests and isolated real-payload fresh-install/migration checks supplement bridge discovery checks. Full live modelling acceptance remains pending.

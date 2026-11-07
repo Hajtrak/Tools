@@ -22,6 +22,8 @@ import {
   callRevit,
   callRevitBatch,
   envelopeToToolResult,
+  BRIDGE_INSTANCE_ID,
+  checkRevitAuthentication,
   checkRevitHealth,
   REVIT_BASE_URL,
 } from "./revitClient.js";
@@ -184,9 +186,13 @@ const _registerTool = server.tool.bind(server);
 // DIAGNOSTICS
 // ═══════════════════════════════════════════════════════════════════════════
 
-server.tool("revit_ping", "Health check. Reports active doc title.", {}, fwd("ping"));
+server.tool("revit_ping", "Authenticated health check. Reports the active document title and bridge instance ID.", {},
+  async () => envelopeToToolResult({ ...(await callRevit("ping", {})), bridgeInstanceId: BRIDGE_INSTANCE_ID }));
 server.tool("revit_get_version", "Get Revit version, build and language. Username is opt-in.", { includeUsername: z.boolean().optional() }, fwd("get_revit_version"));
-server.tool("revit_get_document_info", "Get model identity and project metadata. Personal metadata is opt-in.", { includePersonalMetadata: z.boolean().optional() }, fwd("get_document_info"));
+server.tool("revit_get_document_info", "Get the active model's identity and project metadata. Personal metadata is opt-in.", {
+  includePersonalMetadata: z.boolean().optional(),
+  expectedDocumentKey: z.string().optional().describe("Refuse the read if a different model is active."),
+}, fwd("get_document_info"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INSPECTION / INTROSPECTION
@@ -365,10 +371,11 @@ server.tool("revit_create_wall", "Create a single straight wall. Returns changeS
   dryRun: dryRunField,
 }, fwdWrite("create_wall"));
 
-server.tool("revit_create_floor", "Create a Floor from a closed polygonal profile (>=3 points).", {
-  profile: z.array(xyz).min(3),
+server.tool("revit_create_floor", "Create a horizontal or single-plane sloping floor, preserving explicit profile elevations. No support elements are required. Nonplanar profiles fail without flattening; split multi-slope ramps into segments.", {
+  profile: z.array(xyz).min(3).describe("World XYZ in the selected units. Supply Z on every point (including explicit zero), or omit Z on all points to use the reference level. All points must lie on one plane."),
   levelName: z.string().optional(),
   floorTypeName: z.string().optional(),
+  structural: z.boolean().optional().describe("Structural floor flag. Default false. Does not require modelled supports."),
   units: unitsField,
   dryRun: dryRunField,
 }, fwdWrite("create_floor"));
@@ -1114,7 +1121,7 @@ server.tool("revit_recipe_clash_review",
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`[revit-mcp-server] v0.9.0 connected to Revit addin at ${REVIT_BASE_URL}`);
+  console.error(`[revit-mcp-server] v0.9.0 bridge ${BRIDGE_INSTANCE_ID} targeting ${REVIT_BASE_URL}`);
   if (ENABLED_PROFILES !== null)
     console.error(
       `[revit-mcp-server] profiles: ${[...ENABLED_PROFILES].sort().join(", ")} ` +
@@ -1128,17 +1135,12 @@ async function main() {
       `[revit-mcp-server] WARNING: Revit addin not reachable at ${REVIT_BASE_URL}. ` +
       "Ensure Revit is running with RevitMCPAddin loaded.",
     );
-  } else if (health.authEnabled && !health.authTokenPresent) {
-    console.error(
-      "[revit-mcp-server] WARNING: Revit addin requires auth but no token was found. " +
-      "Set REVIT_MCP_AUTH_TOKEN or ensure the token file is readable at " +
-      `%APPDATA%/Autodesk/Revit/Addins/${process.env.REVIT_MCP_VERSION ?? "2026"}/revit-mcp-token.txt`,
-    );
   } else {
-    console.error(
-      `[revit-mcp-server] Revit addin reachable (v${health.version ?? "?"}, ` +
-      `auth: ${health.authEnabled ? "enabled" : "disabled"})`,
-    );
+    const auth = await checkRevitAuthentication();
+    const tokenState = health.authTokenPresent ? "token found" : "no token found at health check";
+    console.error(auth.ok
+      ? `[revit-mcp-server] Revit addin v${health.version ?? "?"} accepted the authenticated endpoint check`
+      : `[revit-mcp-server] WARNING: Revit addin is reachable, but the authenticated endpoint check failed (${auth.error?.code ?? "unknown"}; ${tokenState})`);
   }
 }
 

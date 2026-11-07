@@ -25,6 +25,8 @@ The original `revit-2026` connector entry is replaced when present, so the stand
 
 ## Uninstall and rollback
 
+The standalone EXE and the [source-build setup menu](MANAGED_SETUP.md) use separate installation records. Manage a standalone installation through Windows Installed apps.
+
 Close Revit, then uninstall **Hajtrak Revit MCP** through Windows Installed apps. Previous affected add-in files and connector entries are restored where available. Unrelated connector settings, backups and operation journals are preserved. If managed files/settings have changed since setup, uninstall stops for review instead of overwriting those edits. Retain the local backups for recovery.
 
 ## Build the installer
