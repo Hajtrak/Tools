@@ -7,7 +7,7 @@
 - Baseline commit: [4d273c6053be449e2066d0373d10b47c236de7ad](https://github.com/KenLP/RevitMCPServer/commit/4d273c6053be449e2066d0373d10b47c236de7ad)
 - Original copyright: **Copyright (c) 2026 Le Phu**
 - Licence: **MIT**, preserved in this directory's [LICENSE](LICENSE).
-- Historical upstream documentation: [UPSTREAM_README.md](docs/UPSTREAM_README.md).
+- Historical upstream documentation: [upstream README at v0.8.40](https://github.com/KenLP/RevitMCPServer/blob/v0.8.40/README.md).
 
 This directory includes substantial upstream code and documentation, modified and redistributed by Hajtrak. Branding changes do not replace original copyright notices or imply endorsement by the original author.
 
