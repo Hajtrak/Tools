@@ -10,7 +10,7 @@ This project is a modified distribution of **[KenLP/RevitMCPServer](https://gith
 
 The original author/copyright holder is **Le Phu (KenLP)**. Original source and MIT copyright/permission notices are retained in [LICENSE](LICENSE). Hajtrak maintains this derivative and its changes; this is not an official upstream release and does not imply upstream endorsement.
 
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for provenance and dependency references, and the [preserved upstream README](docs/UPSTREAM_README.md) for historical context.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for provenance and dependency references. The [upstream README at v0.8.40](https://github.com/KenLP/RevitMCPServer/blob/v0.8.40/README.md) records the original workflow.
 
 ## Architecture
 
@@ -39,9 +39,13 @@ Details for all 17 improved tools, compatibility changes and remaining limitatio
 
 ## Requirements
 
-For installation, use **Windows x64 and Revit 2026**. The [standalone installer](https://github.com/Hajtrak/Tools/releases) includes Node and all bridge dependencies; no original MCP installation is needed. See [installation and uninstall instructions](docs/STANDALONE_INSTALLER.md).
+For **Windows x64, Revit 2026 and Codex**, use [Revit MCP Setup](docs/MANAGED_SETUP.md) as the default. Open Setup-RevitMCP.cmd from a setup bundle or a source checkout with a staged package. The menu requires Node.js 22 or newer and handles installation, updates, connection testing, repair, rollback and uninstall.
+
+For a backup installation method, use the standalone EXE. Its build and verification steps are in [Standalone installer](docs/STANDALONE_INSTALLER.md).
 
 Building from source requires **.NET 8 SDK and Node.js 22 or later**. Upstream multi-version source support is retained, but custom live validation for Revit 2025/2027 has not been established.
+
+For multiple Revit 2026 windows, call `revit_ping` with `listSessions: true` and pass the intended `sessionId` on subsequent tool calls. See [multiple Revit sessions](docs/COMPATIBILITY.md#multiple-revit-sessions).
 
 A licensed Revit installation is required for real model operations. Autodesk binaries, models, personal settings, credentials and project evidence are not distributed here.
 
@@ -76,6 +80,8 @@ The inherited AutoAudit pane is a browser for a **separate application**, [KenLP
 ## Documentation
 
 - [Build, installation and rollback](docs/BUILD_AND_INSTALL.md)
+- [Revit MCP Setup menu](docs/MANAGED_SETUP.md)
+- [Connection troubleshooting](docs/TROUBLESHOOTING.md)
 - [Custom changes and live acceptance matrix](docs/CUSTOM_BUILD.md)
 - [Privacy and publication boundary](docs/PRIVACY.md)
 - [Architecture](docs/ARCHITECTURE.md)

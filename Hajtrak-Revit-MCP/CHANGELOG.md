@@ -1,3 +1,11 @@
+## Unreleased
+
+Added a Windows setup menu for Revit 2026 and Codex with install/update, connection testing, repair, rollback and uninstall. Changes to unrelated Codex entries survive recovery. The setup menu checks for standalone EXE ownership before making changes.
+
+Each Revit process now gets its own authenticated loopback listener. The first uses the preferred port and later processes can claim alternate ports. Use `revit_ping` with `listSessions: true`, then pass the chosen `sessionId` when multiple sessions are open. The setup menu tests authenticated sessions on any assigned port, and standalone package verification checks session selection across all tools.
+
+The bridge verifies authentication at startup and includes a bridge instance ID in ping and authentication errors. Document info accepts an expected document key for safe checks when switching models.
+
 ## Standalone packaging — 2026-10-30
 
 Added an offline Windows x64 setup executable for Revit 2026, with bundled Node and production bridge dependencies, optional Codex configuration, local backups and per-user uninstall/rollback. No original MCP installation is needed. Original MIT copyright and runtime notices are included. Installer policy tests and isolated real-payload fresh-install/migration checks supplement bridge discovery checks. Full live modelling acceptance remains pending.

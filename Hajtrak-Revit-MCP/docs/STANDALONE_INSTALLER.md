@@ -1,6 +1,8 @@
-# Standalone installer — Revit 2026
+# Backup standalone installer for Revit 2026
 
-Download `Hajtrak-Revit-MCP-0.9.0-Revit2026-Windows-x64-Setup.exe` and its SHA256 file from [GitHub Releases](https://github.com/Hajtrak/Tools/releases). This is an unsigned development preview; full live modelling acceptance remains pending.
+[Revit MCP Setup](MANAGED_SETUP.md) is the default for new installations and updates. Keep the standalone EXE as a backup for machines that need its bundled runtime or already use Windows Installed apps.
+
+Use a retained copy of the backup EXE and its SHA256 file or follow the build steps below. The public [GitHub Releases](https://github.com/Hajtrak/Tools/releases) download is the unified setup bundle. The backup EXE is an unsigned development preview.
 
 ## Install on another computer
 
@@ -12,7 +14,7 @@ Download `Hajtrak-Revit-MCP-0.9.0-Revit2026-Windows-x64-Setup.exe` and its SHA25
 
 No previous MCP, Node.js, npm, .NET SDK, or source checkout is needed. Setup contains the complete Hajtrak bridge, all production Node modules, portable Node 22, the Revit add-in and a self-contained setup runtime. Once downloaded, installation requires no package downloads. Revit itself is required and is not included. The optional AutoAudit web application is separate and is not needed for MCP tools.
 
-The connection between the bridge and Revit uses authenticated local loopback HTTP on port 7891. AI-client processing remains subject to the client's own data policies.
+The bridge uses authenticated local loopback HTTP. The first Revit 2026 process normally uses port 7891 and additional processes can use alternate ports. Use one Codex connector for all Revit 2026 sessions. Call `revit_ping` with `listSessions: true` and pass the intended `sessionId` when calling tools. AI-client processing remains subject to the client's own data policies.
 
 ## What setup changes
 
@@ -24,6 +26,8 @@ The connection between the bridge and Revit uses authenticated local loopback HT
 The original `revit-2026` connector entry is replaced when present, so the standard migration results in one configured Revit MCP. Other connector settings are preserved. A second add-in manifest with the same add-in ID blocks installation rather than creating duplicate loads. Custom connector names require manual review to avoid duplicates.
 
 ## Uninstall and rollback
+
+The EXE and the setup menu share Revit add-in files and use separate installation records. To switch to the EXE, uninstall the menu-managed installation from the menu first. To switch to the menu, uninstall the EXE-managed installation through Windows Installed apps first.
 
 Close Revit, then uninstall **Hajtrak Revit MCP** through Windows Installed apps. Previous affected add-in files and connector entries are restored where available. Unrelated connector settings, backups and operation journals are preserved. If managed files/settings have changed since setup, uninstall stops for review instead of overwriting those edits. Retain the local backups for recovery.
 
@@ -43,7 +47,7 @@ For a non-installing check of a built executable:
 ./Hajtrak-Revit-MCP-0.9.0-Revit2026-Windows-x64-Setup.exe --verify-package --report <local-report.json>
 ```
 
-This checks embedded hashes and starts the bundled bridge to discover tool schemas; it does not install, configure Codex, or perform Revit model operations.
+This checks embedded hashes, all 98 tool schemas, and the fields for discovering and targeting Revit sessions. It leaves Revit and Codex configuration alone.
 
 ## Licences
 
