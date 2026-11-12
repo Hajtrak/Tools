@@ -24,7 +24,20 @@
 |---|---|
 | Any current release | ✅ Compatible |
 
-## Side-by-side multi-version
+## Multiple Revit sessions
+
+Each Revit process claims its own loopback port. When its preferred port is
+already registered, the add-in uses an available alternate port. Run
+`revit_ping` with `listSessions: true` to see the active document title,
+process ID, port and session ID for each running instance of the configured
+Revit version. Include the intended `sessionId` in tool calls when multiple
+instances are open or when the only instance is on an alternate port. Rediscover
+the session ID after a restart.
+
+Use an updated add-in and bridge together. Existing single-session clients
+can continue using the preferred port.
+
+### Side-by-side versions
 
 Running Revit 2026 and 2027 simultaneously requires separate Claude Desktop
 config entries pointing to different ports:
@@ -44,8 +57,6 @@ Override with `REVIT_MCP_PORT` env var in the Claude Desktop config.
 - **Windows only.** The C# addin requires Windows (Revit is Windows-only).
   The TypeScript MCP server runs cross-platform but is only useful alongside
   a running Revit instance.
-- **One instance per Revit process.** The HTTP listener binds to
-  `127.0.0.1:<port>`. Each Revit instance occupies one port.
 - **DLL lock during Revit.** You cannot rebuild the C# addin while Revit
   has the DLL loaded. Close Revit, rebuild, reopen.
 - **R2025 not smoke-tested against a live Revit 2025 install.** CI confirms

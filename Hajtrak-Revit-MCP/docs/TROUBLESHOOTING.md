@@ -53,7 +53,11 @@ If an older conversation returns 401 while a fresh conversation successfully cal
 
 Revit commands use the model active when their Revit-thread work begins. Switch between the two models and call `revit_get_document_info` after each switch. Check that the title and document key follow the active model and that switching back returns its original key. Use that key as `expectedDocumentKey` on subsequent document-info calls and model writes that depend on the selected model. A mismatched key stops the command before it runs.
 
-Opening two models inside one Revit process does not start a second listener. If a second Revit process tries to bind the same port, the first process retains its published token.
+### Two Revit processes
+
+With the updated add-in, each Revit process claims a separate port and publishes its own session ID. Call `revit_ping` with `listSessions: true`, choose by active model title and process ID, and pass the chosen `sessionId` on each tool call. If Revit restarts, discover its new session ID. A `session_required` result also occurs if the only remaining instance is on an alternate port.
+
+If opening a second Revit process still shows listener error 183 on port 7891, close all Revit windows and update both the add-in and bridge using the same package.
 
 ---
 

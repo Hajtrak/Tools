@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { Setup } from "./setup-core.mjs";
 
 const action = process.argv[2] ?? "status";
 const project = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const bundledPackage = path.join(project, "release", "revit-2026-connection-fix");
+const bundledPackage = path.join(project, "release", "revit-2026-multiple-sessions");
 const packagePath = process.argv[3] || (fs.existsSync(bundledPackage)
   ? bundledPackage
   : path.join(project, "release", "custom-0.9.0"));
@@ -78,6 +78,22 @@ try {
       console.log("Revit add-in and its Codex registration removed. Recovery packages, user settings, logs and shared WebView2 files are retained.");
       break;
     case "test": {
+      const bridge = path.join(setup.state()?.package ?? packagePath, "McpServer", "dist", "revitClient.js");
+      if (fs.existsSync(bridge)) {
+        const { listRevitSessions } = await import(pathToFileURL(bridge).href);
+        const sessions = listRevitSessions ? (await listRevitSessions()).data.sessions : [];
+        if (sessions.length) {
+          console.log("Authenticated Revit sessions:");
+          for (const session of sessions) {
+            const model = session.documentStatus === "unavailable"
+              ? "active model unavailable" : session.activeDocumentTitle ?? "no active model";
+            console.log(`  ${session.sessionId} | PID ${session.processId} | port ${session.port} | ${model}`);
+          }
+          console.log("In Codex, call revit_ping with listSessions: true and use the intended sessionId.");
+          break;
+        }
+      }
+      // Older installed add-ins only advertise the preferred port.
       const token = fs.readFileSync(path.join(addins, "revit-mcp-token.txt"), "utf8").trim();
       const response = await fetch("http://127.0.0.1:7891/mcp", {
         method: "POST", redirect: "error", signal: AbortSignal.timeout(10000),

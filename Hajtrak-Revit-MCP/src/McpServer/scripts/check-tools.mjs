@@ -18,6 +18,11 @@ try {
   const actual = new Map(tools.map(t => [t.name, t]));
   for (const name of baseline.tools) assert(actual.has(name), "Missing original tool: " + name);
   assert.equal(tools.length, 98);
+  for (const tool of tools) {
+    assert("sessionId" in tool.inputSchema.properties, tool.name + " lacks session targeting");
+    assert(!tool.inputSchema.required?.includes("sessionId"), tool.name + " requires a session in single-session mode");
+  }
+  assert("listSessions" in actual.get("revit_ping").inputSchema.properties);
   for (const name of ["revit_create_beam", "revit_create_column", "revit_duplicate_family_type", "revit_load_family", "revit_batch"]) {
     const properties = actual.get(name).inputSchema.properties;
     for (const field of ["dryRun", "approvalToken", "operationId", "expectedDocumentKey"])

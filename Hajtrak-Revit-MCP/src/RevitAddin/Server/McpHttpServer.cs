@@ -43,30 +43,33 @@ public sealed class McpHttpServer
     private readonly RevitMCPExternalEventHandler _handler;
     private readonly string? _authToken;
     private readonly AuditLog? _audit;
+    private readonly string? _sessionId;
     private readonly HttpListener _listener = new();
     private readonly ServerMetrics _metrics = new();
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
 
     public McpHttpServer(int port, RevitMCPExternalEventHandler handler, string? authToken = null,
-        AuditLog? audit = null)
+        AuditLog? audit = null, string? sessionId = null)
     {
         _port = port;
         _handler = handler;
-        var journal = Environment.GetEnvironmentVariable("REVIT_MCP_OPERATION_JOURNAL")
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RevitMCP.Custom", $"operations-{port}.jsonl");
-        _handler.ConfigureOperations(journal);
         _authToken = authToken;
         _audit = audit;
+        _sessionId = sessionId;
         _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
     }
 
     /// <summary>The auth token in effect (null = auth disabled).</summary>
     public string? AuthToken => _authToken;
+    public int Port => _port;
 
     public void Start()
     {
         _listener.Start();
+        var journal = Environment.GetEnvironmentVariable("REVIT_MCP_OPERATION_JOURNAL")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RevitMCP.Custom", $"operations-{_port}.jsonl");
+        _handler.ConfigureOperations(journal);
         _cts = new CancellationTokenSource();
         _loopTask = Task.Run(() => AcceptLoopAsync(_cts.Token));
     }
@@ -125,6 +128,7 @@ public sealed class McpHttpServer
                 {
                     ["ok"] = true,
                     ["service"] = "revit-mcp-addin",
+                    ["sessionId"] = _sessionId,
                     ["version"] = BuildInfo.Version,
                     ["customProtocol"] = "pmk-1",
                     ["operationRecovery"] = "journaled; interrupted outcomes require reconciliation",
@@ -157,6 +161,15 @@ public sealed class McpHttpServer
                 await WriteJsonAsync(response, 401,
                     JsonResult.Error("unauthorized",
                         "Missing or invalid Authorization header. Expected: Bearer <token>"))
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            var expectedSession = request.Headers["X-Revit-MCP-Session"];
+            if (expectedSession is not null && !string.Equals(expectedSession, _sessionId, StringComparison.Ordinal))
+            {
+                await WriteJsonAsync(response, 409, JsonResult.Error("session_changed",
+                    "The endpoint belongs to a different Revit session. List sessions and select the intended one."))
                     .ConfigureAwait(false);
                 return;
             }

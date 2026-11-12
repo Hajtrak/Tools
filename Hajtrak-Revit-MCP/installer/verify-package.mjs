@@ -13,5 +13,11 @@ try {
   const { tools } = await client.listTools();
   assert.equal(tools.length, 98);
   for (const name of baseline.tools) assert(tools.some(t => t.name === name), `Missing original tool: ${name}`);
+  for (const tool of tools) {
+    assert(tool.inputSchema.properties?.sessionId, `Missing session selector: ${tool.name}`);
+    assert(!tool.inputSchema.required?.includes("sessionId"), `Session selector is required: ${tool.name}`);
+  }
+  assert(tools.find(t => t.name === "revit_ping").inputSchema.properties?.listSessions,
+    "Missing Revit session discovery");
   console.log(JSON.stringify({ toolCount: tools.length, originalToolsRetained: baseline.tools.length }));
 } finally { await client.close(); }

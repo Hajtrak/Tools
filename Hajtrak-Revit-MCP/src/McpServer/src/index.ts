@@ -25,7 +25,10 @@ import {
   BRIDGE_INSTANCE_ID,
   checkRevitAuthentication,
   checkRevitHealth,
+  listRevitSessions,
   REVIT_BASE_URL,
+  REVIT_SESSION_ID_PATTERN,
+  withRevitSession,
 } from "./revitClient.js";
 import { modelHealthTriage, clashReview } from "./recipes.js";
 import { withTrace } from "./trace.js";
@@ -164,18 +167,22 @@ const _registerTool = server.tool.bind(server);
     toolsRegistered++;
     // Every write tool (it has dryRun) also accepts approvalToken, for preview_required mode.
     const handler = args[args.length - 1] as { writeTool?: boolean };
-    const shape = args.find((a) => a !== null && typeof a === "object" && (handler.writeTool || "dryRun" in (a as object)));
-    if (shape) {
-      const fields = shape as Record<string, unknown>;
+    const fields = args[2] as Record<string, unknown>;
+    if (handler.writeTool || "dryRun" in fields) {
       fields.approvalToken = approvalTokenField;
       fields.dryRun = dryRunField;
       fields.operationId = z.string().regex(/^[A-Za-z0-9_-]{8,128}$/).optional().describe("Stable logical operation ID for retry reconciliation; generated if omitted. Never reuse with changed input.");
       fields.expectedDocumentKey = z.string().optional().describe("Document key returned by get_document_info; refuse execution if a different document is active.");
     }
-    // Every tool handler (commands, batch, recipes) goes through the optional trace hook.
+    fields.sessionId = z.string().regex(REVIT_SESSION_ID_PATTERN).optional().describe(
+      "Target Revit session from revit_ping with listSessions: true. Required with multiple Revit sessions.");
     const last = args.length - 1;
-    if (typeof args[last] === "function")
-      args[last] = withTrace(name, args[last] as (...a: unknown[]) => Promise<unknown>);
+    const run = args[last] as (params: Record<string, unknown>, ...extra: unknown[]) => Promise<unknown>;
+    args[last] = withTrace(name, async ({ sessionId, ...params }: Record<string, unknown>, ...extra: unknown[]) => {
+      if (name === "revit_ping" && params.listSessions === true)
+        return envelopeToToolResult(await listRevitSessions());
+      return withRevitSession(sessionId as string | undefined, () => run(params, ...extra));
+    });
     return (_registerTool as (...a: unknown[]) => unknown)(...args);
   }
   toolsSkipped++;
@@ -186,7 +193,9 @@ const _registerTool = server.tool.bind(server);
 // DIAGNOSTICS
 // ═══════════════════════════════════════════════════════════════════════════
 
-server.tool("revit_ping", "Authenticated health check. Reports the active document title and bridge instance ID.", {},
+server.tool("revit_ping", "Authenticated health check. Reports the active document title and bridge instance ID, or lists Revit sessions for targeting tools.", {
+  listSessions: z.boolean().optional().describe("List open Revit sessions with their IDs, ports and active document titles."),
+},
   async () => envelopeToToolResult({ ...(await callRevit("ping", {})), bridgeInstanceId: BRIDGE_INSTANCE_ID }));
 server.tool("revit_get_version", "Get Revit version, build and language. Username is opt-in.", { includeUsername: z.boolean().optional() }, fwd("get_revit_version"));
 server.tool("revit_get_document_info", "Get the active model's identity and project metadata. Personal metadata is opt-in.", {

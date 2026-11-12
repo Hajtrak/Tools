@@ -2,7 +2,9 @@
 
 Added a Windows setup menu for Revit 2026 and Codex with install/update, connection testing, repair, rollback and uninstall. Changes to unrelated Codex entries survive recovery. The setup menu checks for standalone EXE ownership before making changes.
 
-The bridge verifies authentication at startup and includes a bridge instance ID in ping and authentication errors. A Revit process publishes its token after binding the listener so a second process that fails to bind cannot replace the active token. Document info accepts an expected document key for safe checks when switching models.
+Each Revit process now gets its own authenticated loopback listener. The first uses the preferred port and later processes can claim alternate ports. Use `revit_ping` with `listSessions: true`, then pass the chosen `sessionId` when multiple sessions are open. The setup menu tests authenticated sessions on any assigned port, and standalone package verification checks session selection across all tools.
+
+The bridge verifies authentication at startup and includes a bridge instance ID in ping and authentication errors. Document info accepts an expected document key for safe checks when switching models.
 
 ### Floor elevation preservation
 

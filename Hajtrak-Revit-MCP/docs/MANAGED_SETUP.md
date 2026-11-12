@@ -8,7 +8,7 @@ This setup supports **Revit 2026 with Codex on Windows** and manages a verified 
 | --- | --- |
 | Status | Shows registration, file/configuration differences and rollback availability. |
 | Install or update | Verifies the package, recognises the previous custom installation, creates a versioned package and registers the add-in and Codex entry. |
-| Test connection | Performs an authenticated, read-only ping against the open Revit instance. Run revit_ping in Codex as well to test that conversation's connection. |
+| Test connection | Lists authenticated Revit sessions with their process IDs, ports and active models when available. For older add-ins it checks the preferred port. |
 | Repair | Recovers an interrupted operation and reinstalls the recorded package. Uses the staged package if the recorded package is unavailable or damaged. |
 | Roll back | Undoes the last setup operation while preserving unrelated Codex configuration. Refuses to overwrite independent changes to tracked files or Revit settings. |
 | Uninstall | Removes the registered add-in files and the Revit 2026 Codex tables. Retains recovery packages, user settings, logs, token and shared WebView2 files. Rollback can undo it. |
@@ -17,7 +17,7 @@ The menu ships in the setup bundle and source tree. Downloading the standalone E
 
 Close Revit before install, repair, rollback or uninstall. Keep Revit open for the connection test.
 
-After installation, open Revit and your model, then use a fresh Codex conversation. An older conversation may retain its prior connection. Setup cannot refresh a connection held by the Codex host.
+After installation, open Revit and your model, then use a fresh Codex conversation. Run `revit_ping` with `listSessions: true` to discover sessions. Include the intended `sessionId` in calls when multiple sessions are open. An older conversation may retain its prior connection.
 
 The installation record is stored under %LOCALAPPDATA%/RevitMCP.Custom/managed-setup. Package copies and recovery records remain available after uninstall.
 

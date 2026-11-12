@@ -45,6 +45,8 @@ For a backup installation method, use the standalone EXE. Its build and verifica
 
 Building from source requires **.NET 8 SDK and Node.js 22 or later**. Upstream multi-version source support is retained, but custom live validation for Revit 2025/2027 has not been established.
 
+For multiple Revit 2026 windows, call `revit_ping` with `listSessions: true` and pass the intended `sessionId` on subsequent tool calls. See [multiple Revit sessions](docs/COMPATIBILITY.md#multiple-revit-sessions).
+
 A licensed Revit installation is required for real model operations. Autodesk binaries, models, personal settings, credentials and project evidence are not distributed here.
 
 ## Build and check

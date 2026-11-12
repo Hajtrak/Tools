@@ -29,7 +29,7 @@ jobs:
       - run: npm test --prefix src/McpServer
       - run: node src/McpServer/scripts/check-tools.mjs
       - run: node scripts/check-version.mjs
-      - run: node --test installer/engine/install.test.mjs
+      - run: node --test installer/engine/install.test.mjs scripts/setup-core.test.mjs
       - run: node scripts/check-publication.mjs
 
   addin:

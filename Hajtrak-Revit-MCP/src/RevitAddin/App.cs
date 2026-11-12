@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Autodesk.Revit.UI;
 using RevitMCPAddin.Commands;
 using RevitMCPAddin.Packs;
@@ -30,10 +32,14 @@ public sealed class App : IExternalApplication
     // Override with env var REVIT_MCP_PORT before launching Revit.
     private const int DefaultBasePort = 7891;
     private const int BaseRevitYear = 2026;
+    private const int FirstAlternatePort = 17891;
+    private const int AlternatePortCount = 32;
+    private const int PrefixAlreadyRegistered = 183;
 
     private RevitMCPExternalEventHandler? _handler;
     private ExternalEvent? _externalEvent;
     private McpHttpServer? _httpServer;
+    private string? _sessionPath;
     private AuditLog? _audit;
     private AutoAuditPanelView? _panelView;
     private AutoAuditPanelView? _extraPanelView;
@@ -78,12 +84,13 @@ public sealed class App : IExternalApplication
             _externalEvent = ExternalEvent.Create(_handler);
             _handler.AttachExternalEvent(_externalEvent);
 
-            var port = ResolvePort(revitVersion);
+            var preferredPort = ResolvePort(revitVersion);
             var authToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            var sessionId = Guid.NewGuid().ToString("N");
 
-            _httpServer = new McpHttpServer(port, _handler, authToken, _audit);
-            _httpServer.Start();
-            PublishAuthToken(revitVersion, authToken);
+            _httpServer = StartHttpServer(preferredPort, _handler, authToken, _audit, sessionId);
+            var port = _httpServer.Port;
+            PublishSession(revitVersion, sessionId, port, authToken, port == preferredPort);
 
             // Log the actual build so the Revit journal / DebugView shows which dll
             // was loaded — the fastest way to spot a stale dll shadowing a newer one
@@ -126,7 +133,7 @@ public sealed class App : IExternalApplication
         }
         catch (Exception ex)
         {
-            _httpServer?.Stop();
+            StopHttpServer();
             TaskDialog.Show("Hajtrak Revit MCP",
                 "Failed to start MCP HTTP server:\n\n" + ex);
             return Result.Failed;
@@ -267,15 +274,47 @@ public sealed class App : IExternalApplication
 
     public Result OnShutdown(UIControlledApplication application)
     {
-        try
-        {
-            _httpServer?.Stop();
-        }
-        catch
-        {
-            // best effort
-        }
+        StopHttpServer();
         return Result.Succeeded;
+    }
+
+    private void StopHttpServer()
+    {
+        _httpServer?.Stop();
+        if (_sessionPath is not null)
+        {
+            try { File.Delete(_sessionPath); }
+            catch (IOException ex) { LogToConsole(ex.Message); }
+            catch (UnauthorizedAccessException ex) { LogToConsole(ex.Message); }
+        }
+    }
+
+    private static McpHttpServer StartHttpServer(int preferredPort, RevitMCPExternalEventHandler handler,
+        string token, AuditLog audit, string sessionId)
+    {
+        var ports = Enumerable.Range(FirstAlternatePort, AlternatePortCount)
+            .Where(port => port != preferredPort).Prepend(preferredPort);
+        foreach (var port in ports)
+        {
+            var server = new McpHttpServer(port, handler, token, audit, sessionId);
+            try
+            {
+                server.Start();
+                return server;
+            }
+            catch (HttpListenerException ex) when (ex.NativeErrorCode == PrefixAlreadyRegistered)
+            {
+                server.Stop();
+                LogToConsole($"[RevitMCP] Port {port} is already registered.");
+            }
+            catch
+            {
+                server.Stop();
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException($"MCP port {preferredPort} and all alternate MCP ports are already registered.");
     }
 
     private static int ResolvePort(string revitVersion)
@@ -293,28 +332,38 @@ public sealed class App : IExternalApplication
     }
 
     /// <summary>
-    /// Publishes the token only after the listener has claimed the port.
-    /// A second Revit process that fails to bind must leave the live token alone.
+    /// Publishes the session after it owns a listener. Only the preferred port
+    /// owner publishes the compatibility token used by older bridges.
     /// </summary>
-    private static void PublishAuthToken(string revitVersion, string token)
+    private void PublishSession(string revitVersion, string sessionId, int port, string token, bool preferred)
     {
         var addinsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Autodesk", "Revit", "Addins", revitVersion);
-        Directory.CreateDirectory(addinsDir);
-        var tokenPath = Path.Combine(addinsDir, "revit-mcp-token.txt");
-        var temporaryPath = Path.Combine(addinsDir, $"revit-mcp-token-{Guid.NewGuid():N}.tmp");
+        var sessionsDir = Path.Combine(addinsDir, "revit-mcp-sessions");
+        Directory.CreateDirectory(sessionsDir);
+        _sessionPath = Path.Combine(sessionsDir, $"{sessionId}.json");
+        WriteAtomically(_sessionPath, JsonSerializer.Serialize(new
+        {
+            sessionId, port, processId = Environment.ProcessId, token,
+        }));
 
+        if (preferred)
+            WriteAtomically(Path.Combine(addinsDir, "revit-mcp-token.txt"), token);
+    }
+
+    private static void WriteAtomically(string path, string contents)
+    {
+        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temporaryPath, token);
-            File.Move(temporaryPath, tokenPath, overwrite: true);
+            File.WriteAllText(temporaryPath, contents);
+            File.Move(temporaryPath, path, overwrite: true);
         }
         finally
         {
             try { File.Delete(temporaryPath); } catch { }
         }
-        LogToConsole($"[RevitMCP] Auth token written to {tokenPath}");
     }
 
     private static void LogToConsole(string message)

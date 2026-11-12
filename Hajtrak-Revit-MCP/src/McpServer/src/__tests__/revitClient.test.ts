@@ -343,3 +343,80 @@ describe('REVIT_MCP_HOST loopback clamp', () => {
     await expect(import('../revitClient.js')).resolves.toBeDefined();
   });
 });
+
+describe("Revit session routing", () => {
+  const primary = { sessionId: "a".repeat(32), port: 7891, processId: process.pid, token: "A".repeat(43) + "=" };
+  const secondary = { sessionId: "b".repeat(32), port: 17891, processId: process.pid, token: "B".repeat(43) + "=" };
+  const stale = { ...primary, sessionId: "c".repeat(32) };
+
+  beforeEach(() => {
+    vi.stubEnv("APPDATA", "RevitSessionTestProfile");
+    vi.stubEnv("REVIT_MCP_VERSION", "2026");
+    vi.stubEnv("REVIT_MCP_PORT", "7891");
+    vi.stubEnv("REVIT_MCP_AUTH_TOKEN", "legacy-token");
+    vi.doMock("fs", () => ({
+      readdirSync: () => [primary, secondary, stale].map(session => `${session.sessionId}.json`),
+      readFileSync: (path: string) => JSON.stringify([primary, secondary, stale]
+        .find(session => path.endsWith(`${session.sessionId}.json`))),
+    }));
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock("fs");
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("lists live sessions with document titles and excludes a reused endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const { port, pathname } = new URL(url);
+      const session = port === "7891" ? primary : secondary;
+      return pathname === "/health"
+        ? Response.json({ sessionId: session.sessionId })
+        : Response.json({ ok: true, data: { hasActiveDocument: true, activeDocumentTitle: `Model ${port}` } });
+    }));
+    const { listRevitSessions } = await import("../revitClient.js");
+    const result = await listRevitSessions();
+    expect(result.data).toEqual({ sessions: [primary, secondary].map(({ sessionId, processId, port }) => ({
+      sessionId, processId, port, hasActiveDocument: true, activeDocumentTitle: `Model ${port}`,
+    })) });
+  });
+
+  it("rejects unscoped or missing targets before sending a command", async () => {
+    const { withRevitSession } = await import("../revitClient.js");
+    const action = vi.fn(async () => ({ ok: true }));
+    const ambiguous = await withRevitSession(undefined, action);
+    const missing = await withRevitSession("d".repeat(32), action);
+    expect(ambiguous).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("session_required") }] });
+    expect(missing).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("session_not_found") }] });
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("pins concurrent calls and refuses to refresh a selected session's rejected token", async () => {
+    const fetch = vi.fn(async (url: string, options: RequestInit) => {
+      const session = new URL(url).port === "7891" ? primary : secondary;
+      expect(options.headers).toMatchObject({
+        authorization: `Bearer ${session.token}`, "x-revit-mcp-session": session.sessionId,
+      });
+      return session === primary
+        ? Response.json({ ok: true })
+        : Response.json({ ok: false, error: { code: "unauthorized" } }, { status: 401 });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const { withRevitSession, callRevit, callRevitBatch } = await import("../revitClient.js");
+    const [single, batch] = await Promise.all([
+      withRevitSession(primary.sessionId, async () => {
+        await callRevit("get_document_info", {});
+        return callRevit("ping", {});
+      }),
+      withRevitSession(secondary.sessionId, () => callRevitBatch([{ command: "ping" }])),
+    ]);
+    expect(single).toEqual({ ok: true });
+    expect(batch).toMatchObject({ error: { code: "unauthorized" } });
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:7891/mcp", "http://127.0.0.1:17891/mcp/batch", "http://127.0.0.1:7891/mcp",
+    ]);
+  });
+});
